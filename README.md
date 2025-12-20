@@ -1,5 +1,7 @@
 TODO LIST
 - [ ] implement api.fillp()
+- [ ] pause menu
+- [ ] implement api.menuitem()
 
 INSTALL_DEMOS
 - [x] api.p8 (can't show Japanese)
