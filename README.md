@@ -1,3 +1,7 @@
+
+--------
+focuses on gameplay rather than the editor.
+--------
 TODO LIST
 - [x] implement api.fillp (only basic features)
 - [ ] pause menu
@@ -17,8 +21,14 @@ INSTALL_DEMOS
 - [x] wander.p8
 - [x] waves.p8 
 
-GAMES
-- [x] Celeste Classic
+INSTALL_GAMES
+- [ ] 8_legs_to_love.p8
+- [ ] archeos.p8
+- [x] celeste.p8
+- [ ] dusk_child.p8
+- [ ] embrace.p8
+- [ ] frog_home.p8
+- [ ] hug_arena.p8
 
 --------
 PICOLOVE
