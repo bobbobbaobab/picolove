@@ -1008,10 +1008,10 @@ function api.line(x0, y0, x1, y1, col)
 		return
 	end
 
-	x0 = flr(x0) + 1  - pico8.camera_x
-	y0 = flr(y0) + 1 - pico8.camera_y
-	x1 = flr(x1) + 1  - pico8.camera_x
-	y1 = flr(y1) + 1 - pico8.camera_y
+	x0 = flr(x0)  - pico8.camera_x
+	y0 = flr(y0)  - pico8.camera_y
+	x1 = flr(x1)  - pico8.camera_x
+	y1 = flr(y1)  - pico8.camera_y
 
 	local dx = x1 - x0
 	local dy = y1 - y0
@@ -1721,7 +1721,7 @@ function api.run()
 		if not ok then
 			error("Error running lua: " .. tostring(e))
 		else
-			log("lua completed")
+			--log("lua completed")
 		end
 	end
 
@@ -1922,74 +1922,74 @@ function api.dset(index, value)
 end
 
 local tfield = { [0] = "year", "month", "day", "hour", "min", "sec" }
--- function api.stat(x)
--- 	-- TODO: implement this
--- 	if x == 0 then
--- 		return 0 -- TODO memory usage
--- 	elseif x == 1 then
--- 		return 0 -- TODO total cpu usage
--- 	elseif x == 2 then
--- 		return 0 -- TODO system cpu usage
--- 	elseif x == 3 then
--- 		return 0 -- TODO current display (0..3)
--- 	elseif x == 4 then
--- 		return pico8.clipboard
--- 	elseif x == 5 then
--- 		return 41 -- pico-8 version - using latest
--- 	elseif x == 7 then
--- 		return pico8.fps -- current fps
--- 	elseif x == 8 then
--- 		return pico8.fps -- target fps
--- 	elseif x == 9 then
--- 		return love.timer.getFPS()
--- 	elseif x == 32 then
--- 		return getmousex()
--- 	elseif x == 33 then
--- 		return getmousey()
--- 	elseif x == 34 then
--- 		local btns = 0
--- 		for i = 0, 2 do
--- 			if love.mouse.isDown(i + 1) then
--- 				btns = bit.bor(btns, bit.lshift(1, i))
--- 			end
--- 		end
--- 		return btns
--- 	elseif x == 36 then
--- 		return pico8.mwheel
--- 	elseif (x >= 80 and x <= 85) or (x >= 90 and x <= 95) then
--- 		local tinfo
--- 		if x < 90 then
--- 			tinfo = os.date("!*t")
--- 		else
--- 			tinfo = os.date("*t")
--- 		end
--- 		return tinfo[tfield[x % 10]]
--- 	elseif x == 100 then
--- 		return nil -- TODO: breadcrumb not supported
--- 	elseif x == 101 then
--- 		return nil -- TODO: bbs id not supported
--- 	elseif x == 102 then
--- 		return 0 -- TODO: bbs site not supported
--- 	elseif x == 103 then -- UNKNOWN
--- 		return "0000000000000000000000000000000000000000"
--- 	elseif x == 104 then -- UNKNOWN
--- 		return false
--- 	elseif x == 106 then -- UNKNOWN
--- 		return "0000000000000000000000000000000000000000"
--- 	elseif x == 122 then -- UNKNOWN
--- 		return false
--- 	end
+function api.stat(x)
+	-- TODO: implement this
+	if x == 0 then
+		return 0 -- TODO memory usage
+	elseif x == 1 then
+		return 0 -- TODO total cpu usage
+	elseif x == 2 then
+		return 0 -- TODO system cpu usage
+	elseif x == 3 then
+		return 0 -- TODO current display (0..3)
+	elseif x == 4 then
+		return pico8.clipboard
+	elseif x == 5 then
+		return 41 -- pico-8 version - using latest
+	elseif x == 7 then
+		return pico8.fps -- current fps
+	elseif x == 8 then
+		return pico8.fps -- target fps
+	elseif x == 9 then
+		return love.timer.getFPS()
+	elseif x == 32 then
+		return getmousex()
+	elseif x == 33 then
+		return getmousey()
+	elseif x == 34 then
+		local btns = 0
+		for i = 0, 2 do
+			if love.mouse.isDown(i + 1) then
+				btns = bit.bor(btns, bit.lshift(1, i))
+			end
+		end
+		return btns
+	elseif x == 36 then
+		return pico8.mwheel
+	elseif (x >= 80 and x <= 85) or (x >= 90 and x <= 95) then
+		local tinfo
+		if x < 90 then
+			tinfo = os.date("!*t")
+		else
+			tinfo = os.date("*t")
+		end
+		return tinfo[tfield[x % 10]]
+	elseif x == 100 then
+		return nil -- TODO: breadcrumb not supported
+	elseif x == 101 then
+		return nil -- TODO: bbs id not supported
+	elseif x == 102 then
+		return 0 -- TODO: bbs site not supported
+	elseif x == 103 then -- UNKNOWN
+		return "0000000000000000000000000000000000000000"
+	elseif x == 104 then -- UNKNOWN
+		return false
+	elseif x == 106 then -- UNKNOWN
+		return "0000000000000000000000000000000000000000"
+	elseif x == 122 then -- UNKNOWN
+		return false
+	end
 
--- 	return 0
--- end
+	return 0
+end
 
--- function api.holdframe()
--- 	-- TODO: Implement this
--- end
+function api.holdframe()
+	-- TODO: Implement this
+end
 
--- function api.menuitem(index, label, fn) -- luacheck: no unused
--- 	-- TODO: implement this
--- end
+function api.menuitem(index, label, fn) -- luacheck: no unused
+	-- TODO: implement this
+end
 
 api.sub = string.sub
 api.pairs = pairs
