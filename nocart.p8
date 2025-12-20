@@ -266,7 +266,7 @@ function _textinput(text)
 end
 
 function _touchup()
-	-- hide/show keyboard
+	-- hide/show keyboarda
 	poke(0x5f2d, peek(0x5f2d))
 end
 
@@ -277,12 +277,12 @@ function _draw()
 		cursor(0, 120)
 	end
 	-- delete text and carret
-	rectfill(0, _getcursory(), (#linebuffer + 2) * 4 + 4, _getcursory() + 5, 0)
+	rectfill(0, _getcursory()-6, (#linebuffer + 2) * 4 + 4, _getcursory()-6 + 5, 0)
 	-- render text
-	print("> " .. linebuffer, 0, _getcursory(), 7)
+	print("> " .. linebuffer, 0, _getcursory()-6, 7)
 	-- render carret
 	if tc % 16 < 8 and _hasfocus() then
-		rectfill((cursorx + 2) * 4, _getcursory(), (cursorx + 2) * 4 + 3, _getcursory() + 4, 8)
+		rectfill((cursorx + 2) * 4, _getcursory()-6, (cursorx + 2) * 4 + 3, _getcursory()-6 + 4, 8)
 	end
 end
 

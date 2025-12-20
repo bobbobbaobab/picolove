@@ -6,8 +6,21 @@
 ]]
 
 local ffi = require("ffi")
--- Load OpenAL32.dll on Windows (from LOVE) or use ffi.C
-local openal = (ffi.os == "Windows") and ffi.load("openal32") or ffi.C
+
+-- Load OpenAL library with fallbacks to improve portability across platforms
+local openal
+if ffi.os == "Windows" then
+	local ok, lib = pcall(ffi.load, "openal32")
+	if ok then
+		openal = lib
+	else
+		ok, lib = pcall(ffi.load, "OpenAL32")
+		if ok then openal = lib else openal = ffi.C end
+	end
+else
+	local ok, lib = pcall(ffi.load, "openal")
+	if ok then openal = lib else openal = ffi.C end
+end
 
 --alc.h
 ffi.cdef([[

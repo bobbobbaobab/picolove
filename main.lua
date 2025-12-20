@@ -3,19 +3,22 @@ if love.filesystem.setRequirePath then
 	love.filesystem.setRequirePath(package.path)
 end
 
-require("strict")
+require("strict") --必须先声明一个全局变量才能用，防止打错
 local QueueableSource = require("QueueableSource")
 
 local bit = require("bit")
 
 local api = require("api")
 local cart = require("cart")
+local font = require("font")
 
 cartname = nil -- used by api.reload
 local initialcartname = nil -- used by esc
-local love_args = nil -- luacheck: no unused
+local love_args = nil -- luacheck: no unused（未使用）
 
 pico8 = {
+	font = font,
+	fb = {},
 	clip = nil,
 	fps = 30,
 	frametime = 1 / 30,
@@ -45,6 +48,14 @@ pico8 = {
 	audio_channels = {},
 	sfx = {},
 	music = {},
+	music_fade = {
+		vol = 1.0,        -- 当前音乐音量 (0..1)
+		start = 1.0,      -- fade 起始音量
+		target = 1.0,     -- fade 目标音量
+		time = 0.0,       -- 已经过的时间（秒）
+		duration = 0.0,   -- fade 总时长（秒）
+		stop_after = false, -- fade-out 完成后是否 stop
+	},
 	current_music = nil,
 	usermemory = {},
 	cartdata = {},
@@ -66,12 +77,12 @@ pico8 = {
 			[7] = {},
 		},
 		[1] = {
-			[0] = { "s" },
-			[1] = { "f" },
-			[2] = { "e" },
-			[3] = { "d" },
-			[4] = { "tab", "lshift", "w" },
-			[5] = { "q", "a" },
+			[0] = { "s"}, --s
+			[1] = {"f"  }, --f
+			[2] = {  "e"}, --e
+			[3] = {  "d"}, --d
+			[4] = { "tab", "lshift", "w" }, --"tab", "lshift", "w"
+			[5] = { "q","a"}, --q,a
 			[6] = {},
 			[7] = {},
 		},
@@ -99,7 +110,7 @@ local flr, abs = math.floor, math.abs
 
 loaded_code = nil
 
-local __audio_buffer_size = 1024
+local __audio_buffer_size = 1024 --1024 by default
 
 local video_frames = nil
 local osc
@@ -109,7 +120,7 @@ local focus = true
 local focus_start = false
 
 local __audio_channels
-local __sample_rate = 22050
+local __sample_rate = 44100 --22050 by default
 local channels = 1
 local bits = 16
 
@@ -172,13 +183,13 @@ if major == 0 and minor == 9 then
 	end
 end
 
-function restore_clip()
-	if pico8.clip then
-		love.graphics.setScissor(unpack(pico8.clip))
-	else
-		love.graphics.setScissor()
-	end
-end
+-- function restore_clip()
+-- 	if pico8.clip then
+-- 		love.graphics.setScissor(unpack(pico8.clip))
+-- 	else
+-- 		love.graphics.setScissor()
+-- 	end
+-- end
 
 function setColor(c)
 	love.graphics.setColor(c * 16, 0, 0, 255)
@@ -222,7 +233,7 @@ function _load(_cartname)
 	love.graphics.setCanvas(pico8.screen)
 	love.graphics.origin()
 	api.camera()
-	restore_clip()
+	--restore_clip()
 	cartname = _cartname
 	if cart.load_p8(currentDirectory .. _cartname) then
 		api.print("loaded " .. _cartname, 6)
@@ -435,17 +446,23 @@ function love.load(argv)
 	end
 
 	__audio_channels = {
+		--sfx
 		[0] = QueueableSource:new(8),
+		QueueableSource:new(8),
+		QueueableSource:new(8),
+		QueueableSource:new(8),
+		--music
+		QueueableSource:new(8),
 		QueueableSource:new(8),
 		QueueableSource:new(8),
 		QueueableSource:new(8),
 	}
 
-	for i = 0, 3 do
+	for i = 0, 7 do
 		__audio_channels[i]:play()
 	end
 
-	for i = 0, 3 do
+	for i = 0, 7 do
 		pico8.audio_channels[i] = {
 			oscpos = 0,
 			noise = osc[6](),
@@ -457,10 +474,17 @@ function love.load(argv)
 	pico8.screen =
 		love.graphics.newCanvas(pico8.resolution[1], pico8.resolution[2])
 	pico8.screen:setFilter("linear", "nearest")
+	
+	for y = 0, 127 do
+		pico8.fb[y] = {}
+		for x = 0, 127 do
+			pico8.fb[y][x] = 0
+		end
+	end
 
-	local font = love.graphics.newImageFont("font.png", glyphs, 1)
-	love.graphics.setFont(font)
-	font:setFilter("nearest", "nearest")
+	-- local font = love.graphics.newImageFont("font.png", glyphs, 1)
+	-- love.graphics.setFont(font)
+	-- font:setFilter("nearest", "nearest")
 
 	love.mouse.setVisible(false)
 	love.keyboard.setKeyRepeat(true)
@@ -470,7 +494,7 @@ function love.load(argv)
 
 	love.graphics.origin()
 	love.graphics.setCanvas(pico8.screen)
-	restore_clip()
+	--restore_clip()
 
 	pico8.draw_palette = {}
 	pico8.display_palette = {}
@@ -561,6 +585,28 @@ function new_sandbox()
 		-- used for repl
 		_allow_pause = _allow_pause,
 		_allow_shutdown = _allow_shutdown,
+
+		__pico8_all = function(x)
+			if type(x) == "string" then
+				local function iter(s, i)
+					i = i + 1
+					if i <= #s then
+						return i, s:sub(i, i)
+					end
+				end
+				return iter, x, 0
+
+			elseif type(x) == "table" then
+				local function iter(t, i)
+					i = i + 1
+					if t[i] ~= nil then
+						return i, t[i]
+					end
+				end
+				return iter, x, 0
+			end
+		end,
+
 	}
 	for k, v in pairs(picolove_functions) do
 		cart_env[k] = v
@@ -599,8 +645,8 @@ end
 
 function love.draw()
 	love.graphics.setCanvas(pico8.screen)
-	restore_clip()
-	restore_camera()
+	--restore_clip()
+	-- restore_camera()
 
 	love.graphics.setShader(pico8.draw_shader)
 
@@ -609,14 +655,16 @@ function love.draw()
 		pico8.cart._draw()
 	end
 
+	api.flush()
+
 	-- draw the contents of pico screen to our screen
 	flip_screen()
 end
 
-function restore_camera()
-	love.graphics.origin()
-	love.graphics.translate(-pico8.camera_x, -pico8.camera_y)
-end
+-- function restore_camera()
+-- 	love.graphics.origin()
+-- 	love.graphics.translate(-pico8.camera_x, -pico8.camera_y)
+-- end
 
 function flip_screen()
 	love.graphics.setShader(pico8.display_shader)
@@ -661,8 +709,8 @@ function flip_screen()
 	-- get ready for next time
 	love.graphics.setShader(pico8.draw_shader)
 	love.graphics.setCanvas(pico8.screen)
-	restore_clip()
-	restore_camera()
+	--restore_clip()
+	-- restore_camera()
 end
 
 function love.focus(f)
@@ -717,6 +765,28 @@ local function update_audio(time)
 	local samples = flr(time * __sample_rate)
 
 	for _ = 0, samples - 1 do
+
+		local f = pico8.music_fade
+		if f and f.duration > 0 then
+			f.time = f.time + 1 / __sample_rate
+			local t = f.time / f.duration
+			if t >= 1 then
+				t = 1
+			end
+			f.vol = lerp(f.start, f.target, t)
+
+			if t == 1 then
+				f.duration = 0
+				if f.stop_after then
+					-- 真正停止音乐
+					for i = 4, 7 do
+						pico8.audio_channels[i].sfx = nil
+					end
+					pico8.current_music = nil
+				end
+			end
+		end
+
 		if pico8.current_music then
 			pico8.current_music.offset = pico8.current_music.offset
 				+ 7350 / (61 * pico8.current_music.speed * __sample_rate)
@@ -743,7 +813,7 @@ local function update_audio(time)
 		-- TODO: figure out what this was used for
 		--local music = pico8.current_music and pico8.music[pico8.current_music.music] or nil
 
-		for channel = 0, 3 do
+		for channel = 0, 7 do
 			local ch = pico8.audio_channels[channel]
 
 			if ch.bufferpos == 0 or ch.bufferpos == nil then
@@ -830,7 +900,11 @@ local function update_audio(time)
 						local note = sfx[flr(off)][1]
 						ch.freq = note_to_hz(note)
 					end
-					ch.sample = ch.osc(ch.oscpos) * vol / 7
+					local music_vol = 1
+					if channel >= 4 and pico8.music_fade then
+						music_vol = pico8.music_fade.vol
+					end
+					ch.sample = ch.osc(ch.oscpos) * vol / 7 * music_vol
 					ch.oscpos = ch.oscpos + ch.freq / __sample_rate
 					ch.buffer:setSample(ch.bufferpos, ch.sample)
 				else
@@ -998,6 +1072,7 @@ function love.run()
 
 	-- Main loop time.
 	while true do
+
 		-- Process events.
 		if love.event then
 			love.graphics.setCanvas() -- TODO: Rework this
@@ -1168,6 +1243,35 @@ function patch_lua(lua, folder)
 			end
 		end
 	end)
+
+	lua = lua:gsub(
+		"(btnp?%b())", -- 匹配 btn(...) 或 btnp(...)
+		function(call)
+			-- 只在匹配到的 call 里替换 emoji
+			call = call
+				:gsub("⬅️", "0")
+				:gsub("➡️", "1")
+				:gsub("⬆️", "2")
+				:gsub("⬇️", "3")
+				:gsub("🅾️", "4")
+				:gsub("❎", "5")
+			return call
+		end
+	)
+
+	lua = lua
+    :gsub("⬅️", "←")
+    :gsub("➡️", "→") 
+    :gsub("⬆️", "↑") 
+    :gsub("⬇️", "↓") 
+    :gsub("🅾️", "⓪") 
+    :gsub("❎", "✖")  
+
+	-- rewrite for .. in all() loops
+	lua = lua:gsub("for%s+(%w+)%s+in%s+all%s*%((.-)%)%s+do","for _, %1 in __pico8_all(%2) do")
+
+	-- 把 'x & y' 替换为 'bitband(x, y)'
+	lua = lua:gsub("(%w+)%s*&%s*(%w+)", "bitband(%1, %2)")
 
 	return lua
 end

@@ -86,7 +86,8 @@ function QueueableSource:new(bufferCount)
 	new._freeBuffers = freeBuffers
 	new._source = pSource[0]
 	new._pAvailable = ffi.new("ALint[1]")
-	new._pBufferHolder = ffi.new("ALuint[16]")
+	-- Allocate the buffer holder based on the configured buffer count to avoid overflow
+	new._pBufferHolder = ffi.new("ALuint[?]", bufferCount)
 
 	local wrapper = newproxy(true)
 	getmetatable(wrapper).__index = new
@@ -135,10 +136,20 @@ function QueueableSource:queue(data)
 		return nil, "No free buffers were available to playback the given audio."
 	end
 
-	local top = table.remove(self._freeBuffers, 1)
+	-- Pop from the end for O(1) removal; stack behaviour is fine for buffer reuse
+	local top = table.remove(self._freeBuffers)
 
 	al.alBufferData(top, getALFormat(data), data:getPointer(), data:getSize(), data:getSampleRate())
-	al.alSourceQueueBuffers(self._source, 1, ffi.new("ALuint[1]", top))
+	local pBuf = ffi.new("ALuint[1]", top)
+	al.alSourceQueueBuffers(self._source, 1, pBuf)
+
+	-- Check for OpenAL errors and return failure if one occurred
+	local err = al.alGetError()
+	if (err ~= al.AL_NO_ERROR) then
+		-- put buffer back on free list
+		table.insert(self._freeBuffers, top)
+		return nil, "OpenAL error while queueing buffer: " .. tostring(err)
+	end
 end
 
 --[[
@@ -167,9 +178,15 @@ end
 function QueueableSource:clear()
 	self:pause()
 
-	for i = 0, self._bufferCount - 1 do
-		al.alSourceUnqueueBuffers(self._source, self._bufferCount, self._pBuffers)
-		table.insert(self._freeBuffers, self._pBuffers[i])
+	local queued = ffi.new("ALint[1]")
+	al.alGetSourcei(self._source, al.AL_BUFFERS_QUEUED, queued)
+
+	if (queued[0] > 0) then
+		al.alSourceUnqueueBuffers(self._source, queued[0], self._pBufferHolder)
+
+		for i = 0, queued[0] - 1 do
+			table.insert(self._freeBuffers, self._pBufferHolder[i])
+		end
 	end
 end
 
