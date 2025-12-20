@@ -1,3 +1,36 @@
+
+--------
+focuses on gameplay rather than the editor.
+--------
+TODO LIST
+- [x] implement api.fillp (only basic features)
+- [ ] pause menu
+- [ ] implement api.menuitem
+
+INSTALL_DEMOS
+- [ ] api.p8 (can't show Japanese) (no menuitem)
+- [x] automata.p8
+- [x] bounce.p8
+- [ ] cast.p8 (can't show cpu load)
+- [x] collide.p8
+- [x] dots3d.p8
+- [x] drippy.p8
+- [x] hello.p8
+- [ ] jelpi.p8 (no menuitem)
+- [x] sort.p8
+- [x] wander.p8
+- [x] waves.p8 
+
+INSTALL_GAMES
+- [ ] 8_legs_to_love.p8
+- [ ] archeos.p8
+- [x] celeste.p8
+- [ ] dusk_child.p8
+- [ ] embrace.p8
+- [ ] frog_home.p8
+- [ ] hug_arena.p8
+
+--------
 PICOLOVE
 --------
 
