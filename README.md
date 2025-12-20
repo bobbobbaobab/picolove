@@ -1,3 +1,24 @@
+TODO LIST
+- [ ] implement api.fillp()
+
+INSTALL_DEMOS
+- [x] api.p8 (can't show Japanese)
+- [x] automata.p8
+- [x] bounce.p8
+- [ ] cast.p8
+- [x] collide.p8
+- [x] dots3d.p8
+- [x] drippy.p8
+- [x] hello.p8
+- [ ] jelpi.p8
+- [ ] sort.p8
+- [x] wander.p8
+- [x] waves.p8 
+
+GAMES
+- [x] Celeste Classic
+
+--------
 PICOLOVE
 --------
 
