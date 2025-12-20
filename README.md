@@ -8,7 +8,7 @@ TODO LIST
 - [ ] implement api.menuitem
 
 INSTALL_DEMOS
-- [x] api.p8 (can't show Japanese)
+- [ ] api.p8 (can't show Japanese) (no menuitem)
 - [x] automata.p8
 - [x] bounce.p8
 - [ ] cast.p8
@@ -16,7 +16,7 @@ INSTALL_DEMOS
 - [x] dots3d.p8
 - [x] drippy.p8
 - [x] hello.p8
-- [ ] jelpi.p8
+- [ ] jelpi.p8 (no menuitem)
 - [x] sort.p8
 - [x] wander.p8
 - [x] waves.p8 
