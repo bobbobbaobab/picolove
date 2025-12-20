@@ -11,7 +11,7 @@ INSTALL_DEMOS
 - [ ] api.p8 (can't show Japanese) (no menuitem)
 - [x] automata.p8
 - [x] bounce.p8
-- [ ] cast.p8 (can't show cpu load)
+- [x] cast.p8 (can't show cpu usage)
 - [x] collide.p8
 - [x] dots3d.p8
 - [x] drippy.p8
