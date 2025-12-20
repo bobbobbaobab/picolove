@@ -17,6 +17,7 @@ local initialcartname = nil -- used by esc
 local love_args = nil -- luacheck: no unused（未使用）
 
 pico8 = {
+	fill_pattern = 0,
 	font = font,
 	fb = {},
 	clip = nil,
@@ -555,6 +556,7 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) 
 	api.camera()
 	api.pal()
 	api.color(6)
+	api.fillp(2)
 
 	if initialcartname == nil or initialcartname == "" then
 		initialcartname = "nocart.p8"
@@ -1106,13 +1108,13 @@ function love.run()
 		-- Call update and draw
 		local render = false
 		while dt > pico8.frametime do
-			host_time = host_time + dt
-			if host_time > 65536 then
-				host_time = host_time - 65536
-			end
 			if paused or not focus then -- luacheck: ignore 542
 				-- nop
 			else
+				host_time = host_time + dt
+				if host_time > 65536 then
+					host_time = host_time - 65536
+				end
 				-- will pass 0 if love.timer is disabled
 				if love.update then
 					love.update(pico8.frametime)
@@ -1247,7 +1249,6 @@ function patch_lua(lua, folder)
 	lua = lua:gsub(
 		"(btnp?%b())", -- 匹配 btn(...) 或 btnp(...)
 		function(call)
-			-- 只在匹配到的 call 里替换 emoji
 			call = call
 				:gsub("⬅️", "0")
 				:gsub("➡️", "1")
@@ -1265,7 +1266,13 @@ function patch_lua(lua, folder)
     :gsub("⬆️", "↑") 
     :gsub("⬇️", "↓") 
     :gsub("🅾️", "⓪") 
-    :gsub("❎", "✖")  
+    :gsub("❎", "✖") 
+	
+	--bounce.p8
+	lua = lua:gsub("(fillp%s*%b())", function(func_block)
+		local replaced = func_block:gsub("░", "32125.5")
+		return replaced
+	end)
 
 	-- rewrite for .. in all() loops
 	lua = lua:gsub("for%s+(%w+)%s+in%s+all%s*%((.-)%)%s+do","for _, %1 in __pico8_all(%2) do")

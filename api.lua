@@ -396,21 +396,21 @@ function api.mkdir(...)
 	end
 end
 
-function api.install_demos()
-	-- TODO: implement this
-end
+-- function api.install_demos()
+-- 	-- TODO: implement this
+-- end
 
-function api.install_games()
-	-- TODO: implement this
-end
+-- function api.install_games()
+-- 	-- TODO: implement this
+-- end
 
-function api.keyconfig()
-	-- TODO: implement this
-end
+-- function api.keyconfig()
+-- 	-- TODO: implement this
+-- end
 
-function api.splore()
-	-- TODO: implement this
-end
+-- function api.splore()
+-- 	-- TODO: implement this
+-- end
 
 function draw_fb(x,y,col) 
 
@@ -420,6 +420,38 @@ function draw_fb(x,y,col)
 
 	if x < pico8.clip[1] or x > pico8.clip[1]+pico8.clip[3]-1 or y <  pico8.clip[2] or y > pico8.clip[2]+pico8.clip[4]-1 then
 		return
+	end
+
+	local p = pico8.fill_pattern
+    
+    -- 只有当 pattern 存在且不为 0 时才进行计算
+    -- p=0 在 PICO-8 中代表实心填充（默认），所以跳过此检查直接绘制
+	if p and p ~= 0 then
+
+		local pat = flr(p) -- 整数部分：纹理形状
+		
+		-- 计算当前像素的位
+		local px = x % 4
+		local py = y % 4
+		local bit_pos = 15 - (py * 4 + px)
+		
+		-- 检查 Pattern 在该位置是否为 1
+		local bit_set = bit.band(bit.rshift(pat, bit_pos), 1) == 1
+	
+		if bit_set then
+			
+			-- 获取小数部分：p - 整数部分
+			local frac = p - pat
+			
+			-- 检查第一位小数 (.1 也就是 0.5)
+			-- 如果 frac >= 0.5，说明二进制小数点后第一位是 1
+			if frac >= 0.5 then
+				return -- 透明：直接返回，不绘制
+			else
+				col = 0 -- 不透明：绘制黑色（第二种颜色）
+			end
+		end
+		-- 如果 bit_set 为 true，则保持原有的 col 进行绘制
 	end
 
 	pico8.fb[y][x] = col
@@ -1107,8 +1139,9 @@ function api.palt(c, t)
 	-- pico8.sprite_shader:send("transparent", shdr_unpack(pico8.pal_transparent))
 end
 
-function api.fillp(_)
-	-- TODO: implement this
+function api.fillp(p)
+	p = tonumber(p) or 0
+	pico8.fill_pattern = p
 end
 
 function api.map(cel_x, cel_y, sx, sy, cel_w, cel_h, bitmask)
@@ -1562,9 +1595,9 @@ function api.reload(dest_addr, source_addr, len, filepath) -- luacheck: no unuse
 	_load(cartname)
 end
 
-function api.cstore(dest_addr, source_addr, len) -- luacheck: no unused
-	-- TODO: implement this
-end
+-- function api.cstore(dest_addr, source_addr, len) -- luacheck: no unused
+-- 	-- TODO: implement this
+-- end
 
 function api.rnd(x)
 	return love.math.random() * (x or 1)
@@ -1644,9 +1677,9 @@ function api.load(filename)
 	return hasloaded
 end
 
-function api.save()
-	-- TODO: implement this
-end
+-- function api.save()
+-- 	-- TODO: implement this
+-- end
 
 function api.run()
 	if not cartname then
@@ -1702,9 +1735,9 @@ function api.run()
 	end
 end
 
-function api.stop(message, x, y, col) -- luacheck: no unused
-	-- TODO: implement this
-end
+-- function api.stop(message, x, y, col) -- luacheck: no unused
+-- 	-- TODO: implement this
+-- end
 
 function api.reboot()
 	love.window.setTitle("UNTITLED.P8 (PICOLÖVE)")
@@ -1721,17 +1754,17 @@ end
 
 api.exit = api.shutdown
 
-function api.info()
-	-- TODO: implement this
-end
+-- function api.info()
+-- 	-- TODO: implement this
+-- end
 
-function api.export()
-	-- TODO: implement this
-end
+-- function api.export()
+-- 	-- TODO: implement this
+-- end
 
-function api.import()
-	-- TODO: implement this
-end
+-- function api.import()
+-- 	-- TODO: implement this
+-- end
 
 -- TODO: dummy api implementation should just return return null
 --function api.help()
@@ -1787,9 +1820,9 @@ function api.scoresub()
 	return nil, 0
 end
 
-function api.extcmd(_)
-	-- TODO: Implement this?
-end
+-- function api.extcmd(_)
+-- 	-- TODO: Implement this?
+-- end
 
 function api.radio()
 	return nil, 0
@@ -1889,74 +1922,74 @@ function api.dset(index, value)
 end
 
 local tfield = { [0] = "year", "month", "day", "hour", "min", "sec" }
-function api.stat(x)
-	-- TODO: implement this
-	if x == 0 then
-		return 0 -- TODO memory usage
-	elseif x == 1 then
-		return 0 -- TODO total cpu usage
-	elseif x == 2 then
-		return 0 -- TODO system cpu usage
-	elseif x == 3 then
-		return 0 -- TODO current display (0..3)
-	elseif x == 4 then
-		return pico8.clipboard
-	elseif x == 5 then
-		return 41 -- pico-8 version - using latest
-	elseif x == 7 then
-		return pico8.fps -- current fps
-	elseif x == 8 then
-		return pico8.fps -- target fps
-	elseif x == 9 then
-		return love.timer.getFPS()
-	elseif x == 32 then
-		return getmousex()
-	elseif x == 33 then
-		return getmousey()
-	elseif x == 34 then
-		local btns = 0
-		for i = 0, 2 do
-			if love.mouse.isDown(i + 1) then
-				btns = bit.bor(btns, bit.lshift(1, i))
-			end
-		end
-		return btns
-	elseif x == 36 then
-		return pico8.mwheel
-	elseif (x >= 80 and x <= 85) or (x >= 90 and x <= 95) then
-		local tinfo
-		if x < 90 then
-			tinfo = os.date("!*t")
-		else
-			tinfo = os.date("*t")
-		end
-		return tinfo[tfield[x % 10]]
-	elseif x == 100 then
-		return nil -- TODO: breadcrumb not supported
-	elseif x == 101 then
-		return nil -- TODO: bbs id not supported
-	elseif x == 102 then
-		return 0 -- TODO: bbs site not supported
-	elseif x == 103 then -- UNKNOWN
-		return "0000000000000000000000000000000000000000"
-	elseif x == 104 then -- UNKNOWN
-		return false
-	elseif x == 106 then -- UNKNOWN
-		return "0000000000000000000000000000000000000000"
-	elseif x == 122 then -- UNKNOWN
-		return false
-	end
+-- function api.stat(x)
+-- 	-- TODO: implement this
+-- 	if x == 0 then
+-- 		return 0 -- TODO memory usage
+-- 	elseif x == 1 then
+-- 		return 0 -- TODO total cpu usage
+-- 	elseif x == 2 then
+-- 		return 0 -- TODO system cpu usage
+-- 	elseif x == 3 then
+-- 		return 0 -- TODO current display (0..3)
+-- 	elseif x == 4 then
+-- 		return pico8.clipboard
+-- 	elseif x == 5 then
+-- 		return 41 -- pico-8 version - using latest
+-- 	elseif x == 7 then
+-- 		return pico8.fps -- current fps
+-- 	elseif x == 8 then
+-- 		return pico8.fps -- target fps
+-- 	elseif x == 9 then
+-- 		return love.timer.getFPS()
+-- 	elseif x == 32 then
+-- 		return getmousex()
+-- 	elseif x == 33 then
+-- 		return getmousey()
+-- 	elseif x == 34 then
+-- 		local btns = 0
+-- 		for i = 0, 2 do
+-- 			if love.mouse.isDown(i + 1) then
+-- 				btns = bit.bor(btns, bit.lshift(1, i))
+-- 			end
+-- 		end
+-- 		return btns
+-- 	elseif x == 36 then
+-- 		return pico8.mwheel
+-- 	elseif (x >= 80 and x <= 85) or (x >= 90 and x <= 95) then
+-- 		local tinfo
+-- 		if x < 90 then
+-- 			tinfo = os.date("!*t")
+-- 		else
+-- 			tinfo = os.date("*t")
+-- 		end
+-- 		return tinfo[tfield[x % 10]]
+-- 	elseif x == 100 then
+-- 		return nil -- TODO: breadcrumb not supported
+-- 	elseif x == 101 then
+-- 		return nil -- TODO: bbs id not supported
+-- 	elseif x == 102 then
+-- 		return 0 -- TODO: bbs site not supported
+-- 	elseif x == 103 then -- UNKNOWN
+-- 		return "0000000000000000000000000000000000000000"
+-- 	elseif x == 104 then -- UNKNOWN
+-- 		return false
+-- 	elseif x == 106 then -- UNKNOWN
+-- 		return "0000000000000000000000000000000000000000"
+-- 	elseif x == 122 then -- UNKNOWN
+-- 		return false
+-- 	end
 
-	return 0
-end
+-- 	return 0
+-- end
 
-function api.holdframe()
-	-- TODO: Implement this
-end
+-- function api.holdframe()
+-- 	-- TODO: Implement this
+-- end
 
-function api.menuitem(index, label, fn) -- luacheck: no unused
-	-- TODO: implement this
-end
+-- function api.menuitem(index, label, fn) -- luacheck: no unused
+-- 	-- TODO: implement this
+-- end
 
 api.sub = string.sub
 api.pairs = pairs
@@ -1971,9 +2004,9 @@ api.costatus = coroutine.status
 api.trace = debug.traceback
 api.rawset = rawset
 api.rawget = rawget
-function api.rawlen(table) -- luacheck: no unused
-	-- TODO: implement this
-end
+-- function api.rawlen(table) -- luacheck: no unused
+-- 	-- TODO: implement this
+-- end
 api.rawequal = rawequal
 api.next = next
 
@@ -2090,9 +2123,9 @@ function api.deli(...)
 	end
 end
 
-function api.serial(channel, address, length) -- luacheck: no unused
-	-- TODO: implement this
-end
+-- function api.serial(channel, address, length) -- luacheck: no unused
+-- 	-- TODO: implement this
+-- end
 
 function api.flush()
 	for y=0,127 do
