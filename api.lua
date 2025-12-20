@@ -1,3 +1,5 @@
+local bit32 = require("bit") 
+
 local api = {}
 
 local flr = math.floor
@@ -24,6 +26,7 @@ local function _plot4points(lines, cx, cy, x, y)
 end
 
 local function scroll(pixels)
+	if pixels > 128 then pixels = 128 end
 	local base = 0x6000
 	local delta = base + pixels * 0x40
 	local basehigh = 0x8000
@@ -111,24 +114,27 @@ end
 function api.camera(x, y)
 	pico8.camera_x = flr(tonumber(x) or 0)
 	pico8.camera_y = flr(tonumber(y) or 0)
-	restore_camera()
+	-- restore_camera()
 end
 
 function api.clip(x, y, w, h)
 	if type(x) == "number" then
-		love.graphics.setScissor(x, y, w, h)
+		--love.graphics.setScissor(x, y, w, h)
 		pico8.clip = { x, y, w, h }
 	else
-		love.graphics.setScissor(0, 0, pico8.resolution[1], pico8.resolution[2])
+		--love.graphics.setScissor(0, 0, pico8.resolution[1], pico8.resolution[2])
 		pico8.clip = { 0, 0, pico8.resolution[1], pico8.resolution[2] }
 	end
 end
 
 function api.cls(col)
+	api.clip()
 	col = flr(tonumber(col) or 0) % 16
-	col = col + 1 -- TODO: fix workaround
-
-	love.graphics.clear(col * 16, 0, 0, 255)
+	for y=0,127 do
+		for x=0,127 do
+			pico8.fb[y][x] = col
+		end
+	end
 	pico8.cursor = { 0, 0 }
 end
 
@@ -406,33 +412,61 @@ function api.splore()
 	-- TODO: implement this
 end
 
+function draw_fb(x,y,col) 
+
+	if x < 0 or x > 127 or y < 0 or y > 127 then
+		return
+	end
+
+	if x < pico8.clip[1] or x > pico8.clip[1]+pico8.clip[3]-1 or y <  pico8.clip[2] or y > pico8.clip[2]+pico8.clip[4]-1 then
+		return
+	end
+
+	pico8.fb[y][x] = col
+
+end
+
 function api.pset(x, y, col)
 	if col then
 		color(col)
 	end
-	love.graphics.point(flr(x), flr(y))
+
+	x = flr(x)
+	y = flr(y)
+	x = x-pico8.camera_x
+	y = y-pico8.camera_y
+
+	local c = col
+	if c == nil then
+		c = pico8.color
+	end
+	c = flr(c or 0) % 16
+
+	draw_fb(x,y,c)
+
 end
 
 function api.pget(x, y)
-	if
-		x >= 0
-		and x < pico8.resolution[1]
-		and y >= 0
-		and y < pico8.resolution[2]
-	then
-		love.graphics.setCanvas()
-		local __screen_img = pico8.screen:newImageData()
-		love.graphics.setCanvas(pico8.screen)
-		local r = __screen_img:getPixel(flr(x), flr(y))
-		return flr(r / 17.0)
-	end
-	warning(string.format("pget out of screen %d, %d", x, y))
-	return 0
+    x = flr(x)
+    y = flr(y)
+	x = x-pico8.camera_x
+	y = y-pico8.camera_y
+
+    if
+        x >= 0 and x < pico8.resolution[1] and
+        y >= 0 and y < pico8.resolution[2]
+    then
+        return pico8.fb[y][x] or 0
+    else
+        --warning(string.format("pget out of screen %d, %d", x, y))
+        return 0
+    end
 end
 
 function api.color(col)
 	color(col)
 end
+
 
 -- workaround for non printable chars
 local tostring_org = tostring
@@ -443,51 +477,112 @@ end
 
 api.tostring = tostring
 
+local utf8 = require("utf8")
+
 function api.print(...)
-	--TODO: support printing special pico8 chars
+	-- TODO: support printing special pico8 chars
 
 	local argc = select("#", ...)
-	if argc == 0 then
-		return
-	end
+	if argc == 0 then return end
 
-	local x = nil
-	local y = nil
-	local col = nil
+	local x, y, col
 	local str = select(1, ...)
 
+	-- ===== 参数解析 =====
 	if argc == 2 then
-		col = select(2, ...) or 0
+		col = select(2, ...)
 	elseif argc > 2 then
-		x = select(2, ...) or 0
-		y = select(3, ...) or 0
+		x = select(2, ...)
+		y = select(3, ...)
 		if argc >= 4 then
-			col = select(4, ...) or 0
+			col = select(4, ...)
 		end
 	end
 
-	if col ~= nil then
-		color(col)
-	end
-	local canscroll = y == nil
+	local c = col
+
+	if c == nil then
+		c = pico8.color
+	else
+		color(c)
+	end	
+	c = flr(c or 0) % 16
+
+	local canscroll = (y == nil)
+
 	if y == nil then
 		y = pico8.cursor[2]
-		pico8.cursor[2] = pico8.cursor[2] + 6
+		--pico8.cursor[2] = pico8.cursor[2] + 6
 	end
+
 	if x == nil then
 		x = pico8.cursor[1]
 	end
-	if canscroll and y > 121 then
-		local c = col or pico8.color
-		scroll(6)
-		y = 120
-		api.rectfill(0, y, 127, y + 6, 0)
-		api.color(c)
-		api.cursor(0, y + 6)
+
+	x = x-pico8.camera_x
+	y = y-pico8.camera_y
+
+	local ry = y + 6
+
+	if canscroll and y > 116 then
+
+		ry = y
+
+		local h
+		if y < 122 then h = 6 else  h = y- 116 end
+		scroll(h)
+
+		--local c = col or pico8.color
+
+		y=y-6
+		if y>115 then y = 115 end
+
+		api.rectfill(0, 127-h+1, 127, 127, 0)
+		--api.color(c)
+		--api.cursor(x, y)
 	end
-	local to_print = tostring(api.tostr(str))
-	love.graphics.setShader(pico8.text_shader)
-	love.graphics.print(to_print, flr(x), flr(y))
+
+	-- ===== fb 字体绘制 =====
+
+	local text = tostring(api.tostr(str))
+	local cx = flr(x)
+	local cy = flr(y)
+
+	for _, code in utf8.codes(text) do
+
+		-- log(code)
+
+		local glyph = pico8.font[code]
+
+		local column = 3
+		if code==9450 or code==10006 or code==8592 or code==8594 or code==8593 or code==8595 then -- 🅾️❎⬅️➡️⬆️⬇️
+			column = 7
+		end
+
+		if glyph then
+			for row = 1, 5 do
+				local bits = glyph[row]
+				if bits and bits ~= 0 then
+					for b = 0, column-1 do
+						if bit32.band(bit32.rshift(bits, column-1 - b), 1) ~= 0 then
+							local px = cx + b
+							local py = cy + row - 1
+							draw_fb(px,py,pico8.draw_palette[c+1]-1)
+						end
+					end
+				end
+			end
+		end
+		
+		cx = cx + column + 1
+
+	end
+
+	pico8.cursor[1] = x
+	pico8.cursor[2] = ry
+
+	return cx, ry
+
 end
 
 api.printh = print
@@ -612,114 +707,184 @@ function api.tostr(...)
 	end
 end
 
+local function sprite_pixel(sx, sy)
+	if sx < 0 or sx > 127 or sy < 0 or sy > 127 then
+		return 0
+	end
+
+	local r, g, b, a = pico8.spritesheet_data:getPixel(sx, sy)
+
+	-- r 是 0–255，之前你存的是 v*16
+	return flr(r / 16)
+end
+
 function api.spr(n, x, y, w, h, flip_x, flip_y)
-	love.graphics.setShader(pico8.sprite_shader)
-	pico8.sprite_shader:send("transparent", shdr_unpack(pico8.pal_transparent))
+	x = flr(x)
+	y = flr(y)
+	x = x - pico8.camera_x
+	y = y - pico8.camera_y
 	n = flr(n)
 	w = w or 1
 	h = h or 1
-	local q
-	if w == 1 and h == 1 then
-		q = pico8.quads[n]
-		if not q then
-			log("warning: sprite " .. n .. " is missing")
-			return
-		end
-	else
-		local id = string.format("%d-%d-%d", n, w, h)
-		if pico8.quads[id] then
-			q = pico8.quads[id]
-		else
-			q = love.graphics.newQuad(
-				flr(n % 16) * 8,
-				flr(n / 16) * 8,
-				8 * w,
-				8 * h,
-				128,
-				128
-			)
-			pico8.quads[id] = q
+	flip_x = flip_x or false
+	flip_y = flip_y or false
+
+	local sx0 = (n % 16) * 8
+	local sy0 = flr(n / 16) * 8
+
+	for ty = 0, h * 8 - 1 do
+		for tx = 0, w * 8 - 1 do
+			local sx = flip_x and (sx0 + w*8 - 1 - tx) or (sx0 + tx)
+			local sy = flip_y and (sy0 + h*8 - 1 - ty) or (sy0 + ty)
+
+			local pixel_index = sprite_pixel(sx, sy)  -- 返回0~15
+			local col = pico8.draw_palette[pixel_index+1]  -- 如果 draw_palette从1开始索引
+			col = col-1
+			local dx = x + tx
+			local dy = y + ty
+
+			if pico8.pal_transparent[col+1] ~= 0 then
+				draw_fb(dx,dy,col)
+				-- log(dx..","..dy..","..col)
+			end
+
 		end
 	end
-	if not q then
-		log("missing quad", n)
-	end
-	love.graphics.draw(
-		pico8.spritesheet,
-		q,
-		flr(x) + (w * 8 * (flip_x and 1 or 0)),
-		flr(y) + (h * 8 * (flip_y and 1 or 0)),
-		0,
-		flip_x and -1 or 1,
-		flip_y and -1 or 1
-	)
-	love.graphics.setShader(pico8.draw_shader)
 end
 
 function api.sspr(sx, sy, sw, sh, dx, dy, dw, dh, flip_x, flip_y)
-	-- Stretch rectangle from sprite sheet (sx, sy, sw, sh) // given in pixels
-	-- and draw in rectangle (dx, dy, dw, dh)
-	-- Color 0 drawn as transparent by default (see palt())
-	-- dw, dh defaults to sw, sh
-	-- flip_x = true to flip horizontally
-	-- flip_y = true to flip vertically
+	-- 1. 处理默认值
 	dw = dw or sw
 	dh = dh or sh
-	-- FIXME: cache this quad
-	local q =
-		love.graphics.newQuad(sx, sy, sw, sh, pico8.spritesheet:getDimensions())
-	love.graphics.setShader(pico8.sprite_shader)
-	pico8.sprite_shader:send("transparent", shdr_unpack(pico8.pal_transparent))
-	love.graphics.draw(
-		pico8.spritesheet,
-		q,
-		flr(dx) + (flip_x and dw or 0),
-		flr(dy) + (flip_y and dh or 0),
-		0,
-		dw / sw * (flip_x and -1 or 1),
-		dh / sh * (flip_y and -1 or 1)
-	)
-	love.graphics.setShader(pico8.draw_shader)
+	
+	-- 2. 如果宽度或高度为0，直接返回
+	if dw == 0 or dh == 0 then return end
+
+	-- 3. 应用相机偏移
+	dx = flr(dx) - pico8.camera_x
+	dy = flr(dy) - pico8.camera_y
+	
+	-- 4. 获取绝对值用于循环次数
+	local adw = math.abs(dw)
+	local adh = math.abs(dh)
+	
+	-- 5. 计算缩放比例 (源尺寸 / 目标绝对尺寸)
+	local ratio_x = sw / adw
+	local ratio_y = sh / adh
+
+	-- 6. 确定屏幕绘制方向
+	-- 如果宽度是负数，我们需要向左绘制 (x - 1 - ix)
+	-- 这样可以保证正反面占据相同的像素区域 (例如 8~39 和 39~8)
+	local x_dir = dw < 0 and -1 or 1
+	local y_dir = dh < 0 and -1 or 1
+
+	-- 如果是负方向，通常起始点要偏移 -1 以匹配像素网格行为
+	local start_x = dw < 0 and (dx - 1) or dx
+	local start_y = dh < 0 and (dy - 1) or dy
+
+	-- 7. 遍历目标像素 (使用绝对值循环)
+	for iy = 0, adh - 1 do
+		for ix = 0, adw - 1 do
+			
+			-- === 计算源纹理坐标 (Texture Coords) ===
+			-- 只有当显式指定 flip_x/y 参数时才反转纹理读取顺序
+			-- 注意：dw/dh 的正负通过改变屏幕绘制顺序已经实现了翻转效果，
+			-- 所以这里不需要根据 dw 的正负来改变纹理读取。
+			
+			local tx = ix
+			if flip_x then tx = adw - 1 - ix end
+			
+			local ty = iy
+			if flip_y then ty = adh - 1 - iy end
+
+			local sample_x = sx + tx * ratio_x
+			local sample_y = sy + ty * ratio_y
+
+			-- === 获取颜色 ===
+			local pixel_index = sprite_pixel(flr(sample_x), flr(sample_y))
+			local col = pico8.draw_palette[pixel_index + 1]
+			col = col - 1
+
+			-- === 计算屏幕坐标 (Screen Coords) ===
+			-- 这里的 x_dir 决定了是向右画还是向左画
+			local screen_x = start_x + ix * x_dir
+			local screen_y = start_y + iy * y_dir
+
+			-- === 绘制 ===
+			if pico8.pal_transparent[col + 1] ~= 0 then
+				draw_fb(screen_x, screen_y, col)
+			end
+		end
+	end
 end
 
 function api.rect(x0, y0, x1, y1, col)
-	if col then
-		color(col)
+	x0 = x0 - pico8.camera_x
+	x1 = x1 - pico8.camera_x
+	y0 = y0 - pico8.camera_y
+	y1 = y1 - pico8.camera_y
+
+	local c = col
+	if c == nil then
+		c = pico8.color
+	else
+		color(c)
+	end	
+	c = flr(c or 0) % 16
+
+	if x1 < x0 then x0, x1 = x1, x0 end
+	if y1 < y0 then y0, y1 = y1, y0 end
+
+	x0, y0 = flr(x0), flr(y0)
+	x1, y1 = flr(x1), flr(y1)
+
+	for x = x0, x1 do
+		draw_fb(x,y0,c)
+		draw_fb(x,y1,c)
 	end
-	love.graphics.rectangle(
-		"line",
-		flr(x0) + 1,
-		flr(y0) + 1,
-		flr(x1 - x0),
-		flr(y1 - y0)
-	)
+
+	for y = y0 + 1, y1 - 1 do
+		draw_fb(x0,y,c)
+		draw_fb(x1,y,c)
+	end
 end
 
 function api.rectfill(x0, y0, x1, y1, col)
-	if col then
-		color(col)
+	x0 = x0 - pico8.camera_x
+	x1 = x1 - pico8.camera_x
+	y0 = y0 - pico8.camera_y
+	y1 = y1 - pico8.camera_y
+
+	local c = col
+	if c == nil then
+		c = pico8.color
+	else
+		color(c)
+	end	
+	c = flr(c or 0) % 16
+
+	if x1 < x0 then x0, x1 = x1, x0 end
+	if y1 < y0 then y0, y1 = y1, y0 end
+	for y = flr(y0), flr(y1) do
+		for x = flr(x0), flr(x1) do
+			draw_fb(x,y,pico8.draw_palette[c+1]-1)
+		end
 	end
-	if x1 < x0 then
-		x0, x1 = x1, x0
-	end
-	if y1 < y0 then
-		y0, y1 = y1, y0
-	end
-	love.graphics.rectangle(
-		"fill",
-		flr(x0),
-		flr(y0),
-		flr(x1 - x0) + 1,
-		flr(y1 - y0) + 1
-	)
 end
 
 function api.circ(ox, oy, r, col)
-	if col then
-		color(col)
-	end
+	local c = col
+	if c == nil then
+		c = pico8.color
+	else
+		color(c)
+	end	
+	c = flr(c or 0) % 16
+
 	ox = flr(ox) + 1
 	oy = flr(oy) + 1
+	ox = ox - pico8.camera_x
+	oy = oy - pico8.camera_y
 	r = flr(r)
 	local points = {}
 	local x = r
@@ -745,16 +910,26 @@ function api.circ(ox, oy, r, col)
 		end
 	end
 	if #points > 0 then
-		love.graphics.points(points)
+		for i = 1, #points do
+			local p = points[i]
+			draw_fb(p[1], p[2], c)
+		end
 	end
 end
 
 function api.circfill(cx, cy, r, col)
-	if col then
-		color(col)
-	end
+	local c = col
+	if c == nil then
+		c = pico8.color
+	else
+		color(c)
+	end	
+	c = flr(c or 0) % 16
+
 	cx = flr(cx)
 	cy = flr(cy)
+	cx = cx - pico8.camera_x
+	cy = cy - pico8.camera_y
 	r = flr(r)
 	local x = r
 	local y = 0
@@ -775,27 +950,36 @@ function api.circfill(cx, cy, r, col)
 		end
 		y = y + 1
 	end
-	if #lines > 0 then
-		for i = 1, #lines do
-			love.graphics.line(lines[i])
+	for i=1,#lines do
+		local l = lines[i]
+		local y  = flr(l[2])
+		local x0 = flr(l[1])
+		local x1 = flr(l[3])
+		for x = x0, x1 do
+			draw_fb(x,y,pico8.draw_palette[c+1]-1)
 		end
 	end
 end
 
 function api.line(x0, y0, x1, y1, col)
-	if col then
-		color(col)
-	end
+
+	local c = col
+	if c == nil then
+		c = pico8.color
+	else
+		color(c)
+	end	
+	c = flr(c or 0) % 16
 
 	if x0 ~= x0 or y0 ~= y0 or x1 ~= x1 or y1 ~= y1 then
 		warning("line has NaN value")
 		return
 	end
 
-	x0 = flr(x0) + 1
-	y0 = flr(y0) + 1
-	x1 = flr(x1) + 1
-	y1 = flr(y1) + 1
+	x0 = flr(x0) + 1  - pico8.camera_x
+	y0 = flr(y0) + 1 - pico8.camera_y
+	x1 = flr(x1) + 1  - pico8.camera_x
+	y1 = flr(y1) + 1 - pico8.camera_y
 
 	local dx = x1 - x0
 	local dy = y1 - y0
@@ -860,46 +1044,54 @@ function api.line(x0, y0, x1, y1, col)
 			end
 		end
 	end
-	love.graphics.points(points)
+
+	for i, p in ipairs(points) do
+		local x = p[1]
+		local y = p[2]
+		draw_fb(x,y,pico8.draw_palette[c+1]-1)
+	end
+	
+	--love.graphics.points(points)
 end
 
-local __palette_modified = true
+-- local __palette_modified = true
 
 function api.pal(c0, c1, p)
 	if type(c0) ~= "number" then
-		if __palette_modified == false then
-			return
-		end
-		for i = 1, 16 do
+		-- if __palette_modified == false then
+		-- 	return
+		-- end
+
+		for i = 0, 15 do
 			pico8.draw_palette[i] = i
+			pico8.pal_transparent[i] = (i == 1) and 0 or 1
 			pico8.display_palette[i] = pico8.palette[i]
 		end
-		pico8.draw_shader:send("palette", shdr_unpack(pico8.draw_palette))
-		pico8.sprite_shader:send("palette", shdr_unpack(pico8.draw_palette))
-		pico8.text_shader:send("palette", shdr_unpack(pico8.draw_palette))
-		pico8.display_shader:send("palette", shdr_unpack(pico8.display_palette))
-		__palette_modified = false
+
+		-- pico8.draw_shader:send("palette", shdr_unpack(pico8.draw_palette))
+		-- pico8.sprite_shader:send("palette", shdr_unpack(pico8.draw_palette))
+		-- pico8.text_shader:send("palette", shdr_unpack(pico8.draw_palette))
+		-- pico8.display_shader:send("palette", shdr_unpack(pico8.display_palette))
+
+		-- __palette_modified = false
+
 		-- According to PICO-8 manual:
 		-- pal() to reset to system defaults (including transparency values)
 		api.palt()
 	elseif p == 1 and c1 ~= nil then
 		c0 = flr(c0) % 16
 		c1 = flr(c1) % 16
-		c1 = c1 + 1
-		c0 = c0 + 1
-		pico8.display_palette[c0] = pico8.palette[c1]
-		pico8.display_shader:send("palette", shdr_unpack(pico8.display_palette))
-		__palette_modified = true
+		pico8.display_palette[c0+1] = pico8.palette[c1+1]
+		-- pico8.display_shader:send("palette", shdr_unpack(pico8.display_palette))
+		-- __palette_modified = true
 	elseif c1 ~= nil then
 		c0 = flr(c0) % 16
 		c1 = flr(c1) % 16
-		c1 = c1 + 1
-		c0 = c0 + 1
-		pico8.draw_palette[c0] = c1
-		pico8.draw_shader:send("palette", shdr_unpack(pico8.draw_palette))
-		pico8.sprite_shader:send("palette", shdr_unpack(pico8.draw_palette))
-		pico8.text_shader:send("palette", shdr_unpack(pico8.draw_palette))
-		__palette_modified = true
+		pico8.draw_palette[c0+1] = c1+1
+		-- pico8.draw_shader:send("palette", shdr_unpack(pico8.draw_palette))
+		-- pico8.sprite_shader:send("palette", shdr_unpack(pico8.draw_palette))
+		-- pico8.text_shader:send("palette", shdr_unpack(pico8.draw_palette))
+		-- __palette_modified = true
 	end
 end
 
@@ -912,7 +1104,7 @@ function api.palt(c, t)
 		c = flr(c) % 16
 		pico8.pal_transparent[c + 1] = t and 0 or 1
 	end
-	pico8.sprite_shader:send("transparent", shdr_unpack(pico8.pal_transparent))
+	-- pico8.sprite_shader:send("transparent", shdr_unpack(pico8.pal_transparent))
 end
 
 function api.fillp(_)
@@ -920,44 +1112,38 @@ function api.fillp(_)
 end
 
 function api.map(cel_x, cel_y, sx, sy, cel_w, cel_h, bitmask)
-	love.graphics.setShader(pico8.sprite_shader)
-	love.graphics.setColor(255, 255, 255, 255)
 	cel_x = flr(cel_x or 0)
 	cel_y = flr(cel_y or 0)
-	sx = flr(sx or 0)
-	sy = flr(sy or 0)
+	sx    = flr(sx or 0)
+	sy    = flr(sy or 0)
 	cel_w = flr(cel_w or 128)
 	cel_h = flr(cel_h or 64)
-	for y = 0, cel_h - 1 do
-		if cel_y + y < 64 and cel_y + y >= 0 then
-			for x = 0, cel_w - 1 do
-				if cel_x + x < 128 and cel_x + x >= 0 then
-					local v = pico8.map[flr(cel_y + y)][flr(cel_x + x)]
-					if v > 0 then
-						if bitmask == nil or bitmask == 0 then
-							love.graphics.draw(
-								pico8.spritesheet,
-								pico8.quads[v],
-								sx + 8 * x,
-								sy + 8 * y
+
+	for my = 0, cel_h - 1 do
+		local map_y = cel_y + my
+		if map_y >= 0 and map_y < 64 then
+			for mx = 0, cel_w - 1 do
+				local map_x = cel_x + mx
+				if map_x >= 0 and map_x < 128 then
+					local v = pico8.map[map_y][map_x]
+
+					if v and v > 0 then
+						if bitmask == nil or bitmask == 0
+							or bit.band(pico8.spriteflags[v], bitmask) ~= 0
+						then
+							api.spr(
+								v,
+								sx + mx * 8,
+								sy + my * 8
 							)
-						else
-							if bit.band(pico8.spriteflags[v], bitmask) ~= 0 then
-								love.graphics.draw(
-									pico8.spritesheet,
-									pico8.quads[v],
-									sx + 8 * x,
-									sy + 8 * y
-								)
-							end
 						end
 					end
 				end
 			end
 		end
 	end
-	love.graphics.setShader(pico8.draw_shader)
 end
+
 -- deprecated pico-8 function
 api.mapdraw = api.map
 
@@ -1031,16 +1217,30 @@ function api.sset(x, y, c)
 	x = flr(tonumber(x) or 0)
 	y = flr(tonumber(y) or 0)
 	c = flr(tonumber(c) or 0)
+
 	pico8.spritesheet_data:setPixel(x, y, c * 16, 0, 0, 255)
-	pico8.spritesheet:refresh()
+
+	-- 把 ImageData 推送到 GPU
+	pico8.spritesheet:replacePixels(pico8.spritesheet_data)
 end
 
 function api.music(n, fade_len, channel_mask) -- luacheck: no unused
-	-- TODO: implement fade out
+
 	if n == -1 then
+
+		if fade_len and fade_len > 0 and pico8.current_music then
+			local f = pico8.music_fade
+			f.start = f.vol
+			f.target = 0
+			f.time = 0
+			f.duration = fade_len / 1000 -- ms → 秒
+			f.stop_after = true
+			return
+		end
+
 		if pico8.current_music then
-			for i = 0, 3 do
-				if pico8.music[pico8.current_music.music][i] < 64 then
+			for i = 4, 7 do
+				if pico8.music[pico8.current_music.music][i-4] < 64 then
 					pico8.audio_channels[i].sfx = nil
 					pico8.audio_channels[i].offset = 0
 					pico8.audio_channels[i].last_step = -1
@@ -1057,9 +1257,9 @@ function api.music(n, fade_len, channel_mask) -- luacheck: no unused
 	end
 	local music_speed = nil
 	local music_channel = nil
-	for i = 0, 3 do
-		if m[i] < 64 then
-			local sfx = pico8.sfx[m[i]]
+	for i = 4, 7 do
+		if m[i-4] < 64 then
+			local sfx = pico8.sfx[m[i-4]]
 			if music_speed == nil or music_speed > sfx.speed then
 				music_speed = sfx.speed
 				music_channel = i
@@ -1070,12 +1270,29 @@ function api.music(n, fade_len, channel_mask) -- luacheck: no unused
 	pico8.current_music = {
 		music = n,
 		offset = 0,
-		channel_mask = channel_mask or 15,
+		--channel_mask = channel_mask or 15,
 		speed = music_speed,
 	}
-	for i = 0, 3 do
-		if pico8.music[n][i] < 64 then
-			pico8.audio_channels[i].sfx = pico8.music[n][i]
+	pico8.music_fade = pico8.music_fade or {}
+	local f = pico8.music_fade
+	if fade_len and fade_len > 0 then
+		f.vol = 0
+		f.start = 0
+		f.target = 1
+		f.time = 0
+		f.duration = fade_len / 1000
+		f.stop_after = false
+	else
+		f.vol = 1
+		f.start = 1
+		f.target = 1
+		f.time = 0
+		f.duration = 0
+		f.stop_after = false
+	end
+	for i = 4, 7 do
+		if pico8.music[n][i-4] < 64 then
+			pico8.audio_channels[i].sfx = pico8.music[n][i-4]
 			pico8.audio_channels[i].offset = 0
 			pico8.audio_channels[i].last_step = -1
 		end
@@ -1101,8 +1318,28 @@ function api.sfx(n, channel, offset)
 			end
 		end
 	end
-	if channel == -1 then
-		return
+	if channel == -1 then --抢占一个通道
+		local best_channel = nil
+		local best_remaining = math.huge
+		for i = 0, 3 do
+			local ch = pico8.audio_channels[i]
+			if ch.sfx then
+				local sfx = pico8.sfx[ch.sfx]
+				local remaining
+				if sfx.loop_end ~= 0 and ch.loop then
+					-- 循环音效：尽量不要抢
+					remaining = math.huge
+				else
+					-- 非循环：按剩余步数
+					remaining = 32 - ch.offset
+				end
+				if remaining < best_remaining then
+					best_remaining = remaining
+					best_channel = i
+				end
+			end
+		end
+		channel = best_channel or 0
 	end
 	local ch = pico8.audio_channels[channel]
 	ch.sfx = n
@@ -1271,38 +1508,41 @@ function api.poke4(addr, val)
 	api.poke(addr + 3, bit.rshift(bit.band(val, 0xFF000000), 24))
 end
 
+
+
 function api.memcpy(dest_addr, source_addr, len)
 	if len < 1 or dest_addr == source_addr then
 		return
 	end
 
-	-- only for range 0x6000 + 0x8000
+	-- 仅支持地址区间 0x6000 ~ 0x8000
 	if source_addr < 0x6000 or dest_addr < 0x6000 then
 		return
 	end
 	if source_addr + len > 0x8000 or dest_addr + len > 0x8000 then
 		return
 	end
-	love.graphics.setCanvas()
-	local img = pico8.screen:newImageData()
-	love.graphics.setCanvas(pico8.screen)
-	for i = 0, len - 1 do
-		local x = flr(source_addr - 0x6000 + i) % 64 * 2
-		local y = flr((source_addr - 0x6000 + i) / 64)
-		--TODO: why are colors broken?
-		local c = api.ceil(img:getPixel(x, y) / 16)
-		local d = api.ceil(img:getPixel(x + 1, y) / 16)
-		if c ~= 0 then
-			c = c - 1
-		end
-		if d ~= 0 then
-			d = d - 1
-		end
 
-		local dx = flr(dest_addr - 0x6000 + i) % 64 * 2
-		local dy = flr((dest_addr - 0x6000 + i) / 64)
-		api.pset(dx, dy, c)
-		api.pset(dx + 1, dy, d)
+	for i = 0, len - 1 do
+		-- 计算源坐标
+		local src_offset = source_addr - 0x6000 + i
+		local sx = (src_offset % 64) * 2
+		local sy = math.floor(src_offset / 64)
+
+		-- 计算目标坐标
+		local dest_offset = dest_addr - 0x6000 + i
+		local dx = (dest_offset % 64) * 2
+		local dy = math.floor(dest_offset / 64)
+
+		-- 从fb读取颜色（假设fb是二维数组 fb[y][x]）
+		local c = pico8.fb[sy] and pico8.fb[sy][sx] or 0
+		local d = pico8.fb[sy] and pico8.fb[sy][sx + 1] or 0
+
+		-- 写入目标位置
+		if pico8.fb[dy] then
+			pico8.fb[dy][dx] = c
+			pico8.fb[dy][dx + 1] = d
+		end
 	end
 end
 
@@ -1415,7 +1655,7 @@ function api.run()
 
 	love.graphics.setCanvas(pico8.screen)
 	love.graphics.setShader(pico8.draw_shader)
-	restore_clip()
+	--restore_clip()
 	love.graphics.origin()
 
 	api.clip()
@@ -1443,7 +1683,7 @@ function api.run()
 		love.graphics.setShader(pico8.draw_shader)
 		love.graphics.setCanvas(pico8.screen)
 		love.graphics.origin()
-		restore_clip()
+		--restore_clip()
 		ok, e = pcall(f)
 		if not ok then
 			error("Error running lua: " .. tostring(e))
@@ -1761,10 +2001,26 @@ function api.foreach(a, f)
 		return
 	end
 
-	local len = #a
-	for i = 1, len do
-		if a[i] ~= nil then
-			f(a[i])
+	local i = 1
+	while i <= #a do
+		local item = a[i]
+		
+		if item ~= nil then
+			-- 执行回调函数
+			f(item)
+			
+			-- 关键修正逻辑：
+			-- 在执行完 f(item) 后，检查当前位置 a[i] 是否还是原来的 item。
+			-- 情况 1：如果 f 中执行了 del(a, item)，后面的元素会移上来，此时 a[i] 变成了下一个元素。
+			--        这种情况下，我们 *不* 增加 i，下次循环直接处理这个移上来的新元素。
+			-- 情况 2：如果没有删除，a[i] 还是 item。
+			--        这种情况下，我们正常增加 i，处理下一个位置。
+			if a[i] == item then
+				i = i + 1
+			end
+		else
+			-- 如果遇到 nil (稀疏表)，直接跳过
+			i = i + 1
 		end
 	end
 end
@@ -1837,5 +2093,18 @@ end
 function api.serial(channel, address, length) -- luacheck: no unused
 	-- TODO: implement this
 end
+
+function api.flush()
+	for y=0,127 do
+		for x=0,127 do
+			setColor(pico8.fb[y][x])
+			love.graphics.point(x, y)
+		end
+	end
+end
+
+function api.bitband(c, t)
+	return bit.band(c, t)
+end 
 
 return api

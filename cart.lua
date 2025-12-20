@@ -279,6 +279,9 @@ function cart.load_p8(filename)
 		local shared = 0
 
 		if gfxdata then
+			
+			gfxdata = gfxdata .. "\n" -- ensure last line is processed
+
 			local row = 0
 
 			for line in gfxdata:gmatch("(.-)\n") do
@@ -359,6 +362,9 @@ function cart.load_p8(filename)
 		local mapdata = data:match("\n__map__.-\n(.-)\n-__%w+__.-\n")
 
 		if mapdata then
+
+			mapdata = mapdata .. "\n" -- ensure last line is processed
+
 			local row = 0
 			local tiles = 0
 
@@ -389,6 +395,9 @@ function cart.load_p8(filename)
 		local sfxdata = data:match("\n__sfx__.-\n(.-)\n-__%w+__.-\n")
 
 		if sfxdata then
+
+			sfxdata = sfxdata .. "\n" -- ensure last line is processed
+
 			local _sfx = 0
 
 			for line in sfxdata:gmatch("(.-)\n") do
@@ -396,6 +405,7 @@ function cart.load_p8(filename)
 				pico8.sfx[_sfx].speed = tonumber(line:sub(3, 4), 16)
 				pico8.sfx[_sfx].loop_start = tonumber(line:sub(5, 6), 16)
 				pico8.sfx[_sfx].loop_end = tonumber(line:sub(7, 8), 16)
+				
 				local step = 0
 
 				for i = 9, #line, 5 do
@@ -424,6 +434,9 @@ function cart.load_p8(filename)
 		local musicdata = data:match("\n__music__.-\n(.-)\n-__%w+__.-\n")
 
 		if musicdata then
+
+			musicdata = musicdata .. "\n" -- ensure last line is processed
+
 			local _music = 0
 
 			for line in musicdata:gmatch("(.-)\n") do
@@ -452,6 +465,8 @@ function cart.load_p8(filename)
 
 	loaded_code = lua
 
+	log(loaded_code)
+	
 	return true
 end
 
