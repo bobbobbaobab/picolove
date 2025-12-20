@@ -1,7 +1,7 @@
 TODO LIST
-- [ ] implement api.fillp()
+- [x] implement api.fillp (only basic features)
 - [ ] pause menu
-- [ ] implement api.menuitem()
+- [ ] implement api.menuitem
 
 INSTALL_DEMOS
 - [x] api.p8 (can't show Japanese)
@@ -13,7 +13,7 @@ INSTALL_DEMOS
 - [x] drippy.p8
 - [x] hello.p8
 - [ ] jelpi.p8
-- [ ] sort.p8
+- [x] sort.p8
 - [x] wander.p8
 - [x] waves.p8 
 
