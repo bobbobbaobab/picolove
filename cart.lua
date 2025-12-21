@@ -196,7 +196,7 @@ function cart.load_p8(filename)
 					elseif step == 64 then
 						pico8.sfx[_sfx].editor_mode = byte
 					elseif step == 65 then
-						pico8.sfx[_sfx].speed = byte
+						pico8.sfx[_sfx].speed = (byte == 0) and 1 or byte
 					elseif step == 66 then
 						pico8.sfx[_sfx].loop_start = byte
 					elseif step == 67 then
@@ -271,7 +271,6 @@ function cart.load_p8(filename)
 
 		-- extract the lua
 		lua = data:match("\n__lua__.-\n(.-)\n-__%w+__.-\n") or ""
-		log(lua)
 
 		-- load the sprites into an imagedata
 		-- generate a quad for each sprite index
@@ -403,7 +402,7 @@ function cart.load_p8(filename)
 
 			for line in sfxdata:gmatch("(.-)\n") do
 				pico8.sfx[_sfx].editor_mode = tonumber(line:sub(1, 2), 16)
-				pico8.sfx[_sfx].speed = tonumber(line:sub(3, 4), 16)
+				pico8.sfx[_sfx].speed = math.max(1, tonumber(line:sub(3, 4), 16))
 				pico8.sfx[_sfx].loop_start = tonumber(line:sub(5, 6), 16)
 				pico8.sfx[_sfx].loop_end = tonumber(line:sub(7, 8), 16)
 				
@@ -466,9 +465,17 @@ function cart.load_p8(filename)
 
 	loaded_code = lua
 
-	--log(loaded_code)
+	--log_long(loaded_code)
 	
 	return true
+end
+
+
+function log_long(str, chunk)
+    chunk = chunk or 500
+    for i = 1, #str, chunk do
+        print(str:sub(i, i + chunk - 1))
+    end
 end
 
 return cart
