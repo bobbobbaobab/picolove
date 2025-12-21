@@ -1,6 +1,6 @@
 
 --------
-focuses on gameplay rather than the editor.
+This fork focuses on gameplay rather than the editor.
 --------
 TODO LIST
 - [x] implement api.fillp (only basic features)
@@ -22,13 +22,13 @@ INSTALL_DEMOS
 - [x] waves.p8 
 
 INSTALL_GAMES
-- [ ] 8_legs_to_love.p8
-- [ ] archeos.p8
-- [x] celeste.p8
-- [ ] dusk_child.p8
-- [ ] embrace.p8
-- [ ] frog_home.p8
-- [ ] hug_arena.p8
+- [ ] 8_legs_to_love.p8 (not tested yet)
+- [ ] archeos.p8 (not tested yet)
+- [x] celeste.p8 (not tested yet)
+- [ ] dusk_child.p8 (not tested yet)
+- [ ] embrace.p8 (not tested yet)
+- [ ] frog_home.p8 (not tested yet)
+- [ ] hug_arena.p8 (not tested yet)
 
 --------
 PICOLOVE
