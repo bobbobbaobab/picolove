@@ -26,7 +26,7 @@ end
 
 function patch_lua(lua, folder)
     
-    lua = modify_cart_code(lua)
+    lua = modify_game_code(lua)
 	-- patch lua code
 	lua = patch_includes(lua, folder)
 	lua = lua:gsub("!=", "~=")
@@ -138,15 +138,35 @@ function patch_lua(lua, folder)
 	return lua
 end
 
-function modify_cart_code(lua)
+function modify_game_code(lua)
 
     --cast.p8
     lua = lua:gsub(
         "(spd%s*=%s*sqrt%([^)]*%)%s*\n%s*if%s*%(%s*spd%s*%)%s*then)",
         function(match)
             return match:gsub("if%s*%(%s*spd%s*%)%s*then", "if (spd~=0) then")
-        end
-    )
+        end)
+
+
+    --jelpi.p8
+    lua = lua:gsub(
+        "for%s+k%s*,%s*v%s+in%s+pairs%(%s*actor_dat%[k%]%s*%)%s*\n%s*do%s*\n%s*a%[k%]%s*=%s*v%s*\n%s*end",
+        function(block)
+            return
+                "if (actor_dat[k]) then\n\t\t" ..
+                block:gsub("\n", "\n\t\t") ..
+                "\n\tend"
+        end)
+    lua = lua:gsub(
+        "while%s*%(%s*ta%s*<%s*a%-%s*%.5%s*%)%s*ta%s*%+=%s*1%s*\n%s*while%s*%(%s*ta%s*>%s*a%+%s*%.5%s*%)%s*ta%s*%-=%s*1",
+        "while (ta < a-.5) do ta += 1 end\nwhile (ta > a+.5) do ta -= 1 end"
+        )
+    lua = lua:gsub("if (a.standing) ah.x-=a.d/2","if (a.standing) then ah.x-=a.d/2 end")
+    lua = lua:gsub("follow player while close","follow player when close")
+	lua = lua:gsub(
+		"and%s*a%.life%s*>%s*1%s*%)%s*or%s*a%.life%s*==%s*0%s*%)%s*and%s*abs%s*%(%s*a%.x%s*-%s*tx%s*<%s*12%s*%)%s*then",
+		"and a.life > 1)\n\t\t\t\tor a.life==0) and\n\t\t\t\tabs(a.x-tx)<12 then"
+		)
 
     return lua
 end

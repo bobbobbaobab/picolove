@@ -49,6 +49,43 @@ end
 
 local cart = {}
 
+function cart.copy_cart_data()
+	pico8_copy.map = {}
+	for y = 0, 63 do
+		pico8_copy.map[y] = {}
+		for x = 0, 127 do
+			pico8_copy.map[y][x] = pico8.map[y][x]
+		end
+	end
+	pico8_copy.spriteflags = {}
+	for i = 0, 255 do
+		pico8_copy.spriteflags[i] = pico8.spriteflags[i]
+	end
+	pico8_copy.sfx = {}
+	for i = 0, 63 do
+		pico8_copy.sfx[i] = {
+			editor_mode = pico8.sfx[i].editor_mode,
+			speed =  pico8.sfx[i].speed,
+			loop_start =  pico8.sfx[i].loop_start,
+			loop_end =  pico8.sfx[i].loop_end
+		}
+		for j = 0, 31 do
+			pico8_copy.sfx[i][j] = { pico8.sfx[i][j][1], pico8.sfx[i][j][2], pico8.sfx[i][j][3], pico8.sfx[i][j][4] }
+		end
+	end
+	pico8_copy.music = {}
+	for i = 0, 63 do
+		pico8_copy.music[i] = {
+			loop = pico8.music[i].loop,
+			[0] = pico8.music[i][0],
+			[1] = pico8.music[i][1],
+			[2] = pico8.music[i][2],
+			[3] = pico8.music[i][3],
+		}
+	end
+
+end
+
 function cart.load_p8(filename)
 	log("Loading", filename)
 
