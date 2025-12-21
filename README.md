@@ -1,6 +1,6 @@
 
 --------
-focuses on gameplay rather than the editor.
+This fork focuses on gameplay rather than the editor.
 --------
 TODO LIST
 - [x] implement api.fillp (only basic features)
@@ -8,27 +8,27 @@ TODO LIST
 - [ ] implement api.menuitem
 
 INSTALL_DEMOS
-- [ ] api.p8 (can't show Japanese) (no menuitem)
+- [ ] api.p8 (can't print Japanese) (no menuitem)
 - [x] automata.p8
 - [x] bounce.p8
-- [ ] cast.p8 (can't show cpu load)
+- [x] cast.p8 (can't show cpu usage)
 - [x] collide.p8
 - [x] dots3d.p8
 - [x] drippy.p8
 - [x] hello.p8
-- [ ] jelpi.p8 (no menuitem)
+- [ ] jelpi.p8 (no menuitem) (can't print ★)
 - [x] sort.p8
 - [x] wander.p8
 - [x] waves.p8 
 
 INSTALL_GAMES
-- [ ] 8_legs_to_love.p8
-- [ ] archeos.p8
+- [ ] 8_legs_to_love.p8 (not tested yet)
+- [ ] archeos.p8 (not tested yet)
 - [x] celeste.p8
-- [ ] dusk_child.p8
-- [ ] embrace.p8
-- [ ] frog_home.p8
-- [ ] hug_arena.p8
+- [ ] dusk_child.p8 (not tested yet)
+- [ ] embrace.p8 (not tested yet)
+- [ ] frog_home.p8 (not tested yet)
+- [ ] hug_arena.p8 (not tested yet)
 
 --------
 PICOLOVE
