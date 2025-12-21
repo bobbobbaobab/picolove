@@ -24,7 +24,7 @@ INSTALL_DEMOS
 INSTALL_GAMES
 - [ ] 8_legs_to_love.p8 (not tested yet)
 - [ ] archeos.p8 (not tested yet)
-- [x] celeste.p8 (not tested yet)
+- [x] celeste.p8
 - [ ] dusk_child.p8 (not tested yet)
 - [ ] embrace.p8 (not tested yet)
 - [ ] frog_home.p8 (not tested yet)
