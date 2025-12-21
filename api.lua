@@ -116,8 +116,30 @@ function api.reset()
 end
 
 function api.flip()
-	flip_screen()
-	love.timer.sleep(pico8.frametime)
+	-- 1. 把内容绘制到屏幕上
+    flip_screen() 
+    -- 注意：flip_screen 结束时会把 Canvas 设回 pico8.screen
+
+    -- 2. 暂时取消 Canvas，否则无法调用 pump
+    love.graphics.setCanvas()
+
+    -- 3. 手动更新音频（解决声音卡顿/不播放问题）
+    if pico8.update_audio then
+        pico8.update_audio(pico8.frametime)
+    end
+
+    -- 4. 处理系统事件（解决窗口未响应，现在调用是安全的）
+    if love.event then
+        love.event.pump()
+    end
+
+    -- 5. 恢复 Canvas，确保后续的 print/spr 等指令能画对地方
+    if pico8.screen then
+        love.graphics.setCanvas(pico8.screen)
+    end
+
+    -- 6. 等待帧同步
+    love.timer.sleep(pico8.frametime)
 end
 
 function api.camera(x, y)
@@ -589,9 +611,17 @@ function api.print(...)
 	local cx = flr(x)
 	local cy = flr(y)
 
+	local start_x = flr(x)
+
 	for _, code in utf8.codes(text) do
 
-		-- log(code)
+		--log(code)
+		if code == 10 then
+			cx = start_x
+			cy = cy + 6
+			ry = cy
+			goto continue
+		end
 
 		local glyph = pico8.font[code]
 
@@ -617,6 +647,7 @@ function api.print(...)
 		
 		cx = cx + column + 1
 
+		::continue::
 	end
 
 	pico8.cursor[1] = x
@@ -1564,39 +1595,80 @@ end
 
 
 function api.memcpy(dest_addr, source_addr, len)
-	if len < 1 or dest_addr == source_addr then
-		return
-	end
 
-	-- 仅支持地址区间 0x6000 ~ 0x8000
-	if source_addr < 0x6000 or dest_addr < 0x6000 then
-		return
-	end
-	if source_addr + len > 0x8000 or dest_addr + len > 0x8000 then
-		return
-	end
+    if len < 1 or dest_addr == source_addr then
+        return
+    end
 
-	for i = 0, len - 1 do
-		-- 计算源坐标
-		local src_offset = source_addr - 0x6000 + i
-		local sx = (src_offset % 64) * 2
-		local sy = math.floor(src_offset / 64)
+    -- 辅助函数：读取任意地址的一个字节
+    local function peek_byte(addr)
+        -- [0x1000 - 0x1FFF] Map 下半部分 (Row 32-63)
+        if addr >= 0x1000 and addr < 0x2000 then
+            local offset = addr - 0x1000
+            local y = 32 + math.floor(offset / 128) -- 注意这里加了32
+            local x = offset % 128
+            return (pico8.map[y] and pico8.map[y][x]) or 0
+        
+        -- [0x2000 - 0x2FFF] Map 上半部分 (Row 0-31)
+        elseif addr >= 0x2000 and addr < 0x3000 then
+            local offset = addr - 0x2000
+            local y = math.floor(offset / 128) -- 这里从 0 开始
+            local x = offset % 128
+            return (pico8.map[y] and pico8.map[y][x]) or 0
+        
+        -- [0x6000 - 0x7FFF] Screen
+        elseif addr >= 0x6000 and addr < 0x8000 then
+            local offset = addr - 0x6000
+            local y = math.floor(offset / 64)
+            local x = (offset % 64) * 2
+            local p1 = (pico8.fb[y] and pico8.fb[y][x]) or 0
+            local p2 = (pico8.fb[y] and pico8.fb[y][x+1]) or 0
+            return bit.bor(p1, bit.lshift(p2, 4))
+		else
+			error("not implemented")
+        end
+        return 0
+    end
 
-		-- 计算目标坐标
-		local dest_offset = dest_addr - 0x6000 + i
-		local dx = (dest_offset % 64) * 2
-		local dy = math.floor(dest_offset / 64)
+    -- 辅助函数：写入任意地址
+    local function poke_byte(addr, val)
+        -- [0x1000 - 0x1FFF] Map 下半部分 (Row 32-63)
+        if addr >= 0x1000 and addr < 0x2000 then
+            local offset = addr - 0x1000
+            local y = 32 + math.floor(offset / 128)
+            local x = offset % 128
+            if not pico8.map[y] then pico8.map[y] = {} end
+            pico8.map[y][x] = val
 
-		-- 从fb读取颜色（假设fb是二维数组 fb[y][x]）
-		local c = pico8.fb[sy] and pico8.fb[sy][sx] or 0
-		local d = pico8.fb[sy] and pico8.fb[sy][sx + 1] or 0
+        -- [0x2000 - 0x2FFF] Map 上半部分 (Row 0-31)
+        elseif addr >= 0x2000 and addr < 0x3000 then
+            local offset = addr - 0x2000
+            local y = math.floor(offset / 128)
+            local x = offset % 128
+            if not pico8.map[y] then pico8.map[y] = {} end
+            pico8.map[y][x] = val
 
-		-- 写入目标位置
-		if pico8.fb[dy] then
-			pico8.fb[dy][dx] = c
-			pico8.fb[dy][dx + 1] = d
-		end
-	end
+        -- [0x6000 - 0x7FFF] Screen
+        elseif addr >= 0x6000 and addr < 0x8000 then
+            local offset = addr - 0x6000
+            local y = math.floor(offset / 64)
+            local x = (offset % 64) * 2
+            local p1 = bit.band(val, 0x0F)
+            local p2 = bit.rshift(val, 4)
+            if pico8.fb[y] then
+                pico8.fb[y][x] = p1
+                pico8.fb[y][x+1] = p2
+            end
+		else
+			error("not implemented")
+        end
+    end
+
+    -- 执行拷贝循环
+    for i = 0, len - 1 do
+        local val = peek_byte(source_addr + i)
+        poke_byte(dest_addr + i, val)
+    end
 end
 
 function api.memset(dest_addr, val, len)
@@ -2065,23 +2137,23 @@ api.rawget = rawget
 api.rawequal = rawequal
 api.next = next
 
-function api.all(a)
-	if a == nil then
-		return function() end
-	end
+-- function api.all(a)
+-- 	if a == nil then
+-- 		return function() end
+-- 	end
 
-	local i = 0
-	local len = #a
-	return function()
-		len = len - 1
-		i = #a - len
-		while a[i] == nil and len > 0 do
-			len = len - 1
-			i = #a - len
-		end
-		return a[i]
-	end
-end
+-- 	local i = 0
+-- 	local len = #a
+-- 	return function()
+-- 		len = len - 1
+-- 		i = #a - len
+-- 		while a[i] == nil and len > 0 do
+-- 			len = len - 1
+-- 			i = #a - len
+-- 		end
+-- 		return a[i]
+-- 	end
+-- end
 
 function api.foreach(a, f)
 	if not a then
