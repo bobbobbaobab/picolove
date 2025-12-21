@@ -594,6 +594,10 @@ function new_sandbox()
 		_allow_shutdown = _allow_shutdown,
 
 		__pico8_all = function(x)
+			if x == nil then
+				-- 返回一个空迭代器，什么都不遍历
+				return function() return nil end, nil, nil
+			end
 			if type(x) == "string" then
 				local function iter(s, i)
 					i = i + 1
@@ -1155,3 +1159,5 @@ function love.run()
 		end
 	end
 end
+
+pico8.update_audio = update_audio
