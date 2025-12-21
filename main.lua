@@ -17,6 +17,8 @@ cartname = nil -- used by api.reload
 local initialcartname = nil -- used by esc
 local love_args = nil -- luacheck: no unused（未使用）
 
+pico8_copy={}
+
 pico8 = {
 	fill_pattern = 0,
 	font = font,
@@ -239,9 +241,11 @@ function _load(_cartname)
 	cartname = _cartname
 	if cart.load_p8(currentDirectory .. _cartname) then
 		api.print("loaded " .. _cartname, 6)
+		cart.copy_cart_data()
 	end
 	return true
 end
+
 
 function love.resize(w, h)
 	-- adjust stuff to fit the screen
@@ -557,7 +561,7 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) 
 	api.camera()
 	api.pal()
 	api.color(6)
-	api.fillp(2)
+	api.fillp()
 
 	if initialcartname == nil or initialcartname == "" then
 		initialcartname = "nocart.p8"

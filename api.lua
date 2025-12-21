@@ -106,6 +106,15 @@ end
 -- TODO: only apply if fps is 15, 30 or 60
 api._set_fps = setfps
 
+
+function api.reset()
+	api.clip()
+	api.camera()
+	api.pal()
+	api.color(6)
+	api.fillp()
+end
+
 function api.flip()
 	flip_screen()
 	love.timer.sleep(pico8.frametime)
@@ -751,6 +760,11 @@ local function sprite_pixel(sx, sy)
 end
 
 function api.spr(n, x, y, w, h, flip_x, flip_y)
+
+	if x ~= x or y ~= y then --x或y为nan
+    	return
+	end
+
 	x = flr(x)
 	y = flr(y)
 	x = x - pico8.camera_x
@@ -771,12 +785,11 @@ function api.spr(n, x, y, w, h, flip_x, flip_y)
 
 			local pixel_index = sprite_pixel(sx, sy)  -- 返回0~15
 			local col = pico8.draw_palette[pixel_index+1]  -- 如果 draw_palette从1开始索引
-			col = col-1
 			local dx = x + tx
 			local dy = y + ty
 
-			if pico8.pal_transparent[col+1] ~= 0 then
-				draw_fb(dx,dy,col)
+			if pico8.pal_transparent[pixel_index+1] ~= 0 then
+				draw_fb(dx,dy,col-1)
 				-- log(dx..","..dy..","..col)
 			end
 
@@ -1094,9 +1107,9 @@ function api.pal(c0, c1, p)
 		-- 	return
 		-- end
 
-		for i = 0, 15 do
+		for i = 1, 16 do
 			pico8.draw_palette[i] = i
-			pico8.pal_transparent[i] = (i == 1) and 0 or 1
+			pico8.pal_transparent[i] = i == 1 and 0 or 1
 			pico8.display_palette[i] = pico8.palette[i]
 		end
 
@@ -1336,18 +1349,25 @@ function api.sfx(n, channel, offset)
 	-- n = -1 stop sound on channel
 	-- n = -2 to stop looping on channel
 	channel = channel or -1
-	if n == -1 and channel >= 0 then
-		pico8.audio_channels[channel].sfx = nil
-		return
-	elseif n == -2 and channel >= 0 then
-		pico8.audio_channels[channel].loop = false
-	end
+    if n == -1 then
+        if channel >= 0 then
+            -- stop specific channel
+            pico8.audio_channels[channel].sfx = nil
+        else
+            -- stop all channels
+            for i = 0, 3 do
+                pico8.audio_channels[i].sfx = nil
+            end
+        end
+        return
+    end
 	offset = offset or 0
 	if channel == -1 then
 		-- find a free channel
 		for i = 0, 3 do
 			if pico8.audio_channels[i].sfx == nil then
 				channel = i
+				break
 			end
 		end
 	end
@@ -1589,10 +1609,45 @@ function api.memset(dest_addr, val, len)
 	end
 end
 
-function api.reload(dest_addr, source_addr, len, filepath) -- luacheck: no unused
+--function api.reload(dest_addr, source_addr, len, filepath) 
+function api.reload() -- luacheck: no unused
 	-- FIXME: doesn't handle ranges, we should keep a "cart rom"
 	-- FIXME: doesn't handle filepaths
-	_load(cartname)
+	--_load(cartname)
+
+	--恢复数据
+    for y = 0, 63 do
+        for x = 0, 127 do
+            pico8.map[y][x] = pico8_copy.map[y][x]
+        end
+    end
+
+	for i = 0, 255 do
+		pico8.spriteflags[i] = pico8_copy.spriteflags[i]
+	end
+
+	for i = 0, 63 do
+		pico8.sfx[i] = {
+			editor_mode = pico8_copy.sfx[i].editor_mode,
+			speed =  pico8_copy.sfx[i].speed,
+			loop_start =  pico8_copy.sfx[i].loop_start,
+			loop_end =  pico8_copy.sfx[i].loop_end
+		}
+		for j = 0, 31 do
+			pico8.sfx[i][j] = { pico8_copy.sfx[i][j][1], pico8_copy.sfx[i][j][2], pico8_copy.sfx[i][j][3], pico8_copy.sfx[i][j][4] }
+		end
+	end
+
+	for i = 0, 63 do
+		pico8.music[i] = {
+			loop = pico8_copy.music[i].loop,
+			[0] = pico8_copy.music[i][0],
+			[1] = pico8_copy.music[i][1],
+			[2] = pico8_copy.music[i][2],
+			[3] = pico8_copy.music[i][3],
+		}
+	end
+
 end
 
 -- function api.cstore(dest_addr, source_addr, len) -- luacheck: no unused
@@ -1707,9 +1762,9 @@ function api.run()
 
 	local ok, f, e = pcall(load, loaded_code, cartname)
 	if not ok or f == nil then
-		log("=======8<========")
-		log(loaded_code)
-		log("=======>8========")
+		-- log("=======8<========")
+		-- log(loaded_code)
+		-- log("=======>8========")
 		error("Error loading lua: " .. tostring(e))
 	else
 		setfenv(f, pico8.cart)
