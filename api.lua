@@ -140,6 +140,14 @@ function api.flip()
 
     -- 6. 等待帧同步
     love.timer.sleep(pico8.frametime)
+
+	-- 吃掉时间增量
+    -- 调用 step() 会重置 LÖVE 的内部计时器。
+    -- 这样当代码回到 main.lua 的主循环时，getDelta() 返回的将是 0 (或极小值)，
+    -- 就不会触发“疯狂追赶”的 update 循环了。
+    if love.timer then
+        love.timer.step()
+    end
 end
 
 function api.camera(x, y)
