@@ -71,25 +71,57 @@ pico8 = {
 	},
 	keymap = {
 		[0] = {
-			[0] = { "a","left", "kp4" },
-			[1] = { "d","right", "kp6" },
-			[2] = { "w","up", "kp8" },
-			[3] = { "s","down", "kp5" },
-			[4] = { "k","z", "c", "n", "kp-", "kp1", "insert" },
-			[5] = { "j","x", "v", "m", "8", "kp2", "delete" },
-			[6] = { "return", "escape" },
-			[7] = {},
+			[0] = { "left", "kp4" },
+			[1] = { "right", "kp6" },
+			[2] = { "up", "kp8" },
+			[3] = { "down", "kp5" },
+			[4] = { "z", "c", "n", "kp-", "kp1", "insert" },
+			[5] = { "x", "v", "m", "8", "kp2", "delete" },
+			[6] = { "p", "return"}
 		},
 		[1] = {
-			[0] = { }, --s
-			[1] = {  }, --f
-			[2] = {  }, --e
-			[3] = {  }, --d
-			[4] = {  }, --"tab", "lshift", "w"
-			[5] = { }, --q,a
-			[6] = {},
-			[7] = {},
+			[0] = {},
+			[1] = {},
+			[2] = {},
+			[3] = {},
+			[4] = {}, 
+			[5] = {},
+			[6] = {}
 		},
+	},
+	-- keymap = {
+	-- 	[0] = {
+	-- 		[0] = {"a"},
+	-- 		[1] = {"d"},
+	-- 		[2] = {"w"},
+	-- 		[3] = {"s"},
+	-- 		[4] = {"k"},
+	-- 		[5] = {"j"},
+	--      [6] = { "p", "return"}
+	-- 	},
+	-- 	[1] = {
+	-- 		[0] = {},
+	-- 		[1] = {},
+	-- 		[2] = {},
+	-- 		[3] = {},
+	-- 		[4] = {},
+	-- 		[5] = {},
+	--      [6] = {}
+	-- 	},
+	-- },
+	gamepad_map = {
+		leftx = { [0] = 0, [1] = 1 }, -- 摇杆 X 轴映射为 0(左) 和 1(右)
+		lefty = { [0] = 2, [1] = 3 }, -- 摇杆 Y 轴映射为 2(上) 和 3(下)
+		dpright = 1,
+		dpleft = 0,
+		dpdown = 3,
+		dpup = 2,
+		a = 4,      -- PICO-8 的 🅾️
+		b = 5,      -- PICO-8 的 ❎
+		x = 5,      -- 兼容映射
+		y = 4,      -- 兼容映射
+		start = 6,
+		back = 6
 	},
 	mwheel = 0,
 	cursor = { 0, 0 },
@@ -131,8 +163,8 @@ local channels = 1
 local bits = 16
 
 currentDirectory = "/"
-local glyphs =
-	"abcdefghijklmnopqrstuvwxyz\"'`-_/1234567890!?[](){}.,;:<>+=%#^*~ "
+-- local glyphs =
+-- 	"abcdefghijklmnopqrstuvwxyz\"'`-_/1234567890!?[](){}.,;:<>+=%#^*~ "
 
 -- local function _allow_pause(value)
 -- 	if type(value) ~= "boolean" then
@@ -586,7 +618,7 @@ function new_sandbox()
 		error = error,
 		log = log,
 		ipairs = ipairs,
-		_keydown = nil,
+		-- _keydown = nil,
 		_keyup = nil,
 		_touchdown = nil,
 		_touchup = nil,
@@ -632,6 +664,7 @@ local function inside(x, y, x0, y0, w, h) -- luacheck: no unused
 	return (x >= x0 and x < x0 + w and y >= y0 and y < y0 + h)
 end
 
+
 local function update_buttons()
 	for p = 0, 1 do
 		for i = 0, #pico8.keymap[p] do
@@ -646,6 +679,7 @@ local function update_buttons()
 		end
 	end
 end
+
 
 function love.update(_)
 	update_buttons()
@@ -952,65 +986,57 @@ end
 
 function love.keypressed(key)
 	if key == "r" and isCtrlOrGuiDown() and not isAltDown() then
-		api.reload()
+		api.load(initialcartname)
 		api.run()
 	elseif key == "d" and isCtrlOrGuiDown() and not isAltDown() then
 		log(string.rep("\n", 200))
 		key = ""
-	elseif
-		key == "escape"
-		and cartname ~= nil
-		and cartname ~= initialcartname
-		and cartname ~= "nocart.p8"
-		and cartname ~= "editor.p8"
-	then
-		api.load(initialcartname)
-		api.run()
+	-- elseif
+	-- 	key == "escape"
+	-- 	and cartname ~= nil
+	-- 	and cartname ~= initialcartname
+	-- 	and cartname ~= "nocart.p8"
+	-- 	and cartname ~= "editor.p8"
+	-- then
+	-- 	api.load(initialcartname)
+	-- 	api.run()
+	-- 	return
+	-- elseif key == "q" and isCtrlOrGuiDown() and not isAltDown() then
+	-- 	love.event.quit(2)
+	elseif key == "return" and isAltDown() then
+		love.graphics.setCanvas()
+		love.window.setFullscreen(not love.window.getFullscreen(), "desktop")
+		love.graphics.setCanvas(pico8.screen)
 		return
-	elseif key == "q" and isCtrlOrGuiDown() and not isAltDown() then
-		love.event.quit(2)
 	elseif key == "v" and isCtrlOrGuiDown() and not isAltDown() then
 		pico8.clipboard = love.system.getClipboardText()
-	elseif  pico8.paused==false and (key == "return" or key == "p") then
+	elseif  pico8.paused==false and has_value(pico8.keymap[0][6], key) then
 		pico8.paused = true
 	elseif pico8.paused==true then
-		if key == "s" then 
+		if has_value(pico8.keymap[0][3], key) then 
 			pico8.pause_menu_selected = next_pause_item(pico8.pause_menu_selected)
-		elseif key == "w" then 
+		elseif has_value(pico8.keymap[0][2], key) then 
 		 	pico8.pause_menu_selected = prev_pause_item(pico8.pause_menu_selected)
-		elseif key == "j" or key == "k" or key == "return" or key == "p" then 
-			if pico8.pause_menu_selected ==0 then
-				pico8.paused = false
-			elseif pico8.pause_menu_selected == 6 then
-				--swap button
-			elseif pico8.pause_menu_selected == 7 then
-				api.load(initialcartname)
-				api.run()
-				pico8.paused = false
-				pico8.pause_menu = {[0]="continue",[1]=nil,[2]=nil,[3]=nil,[4]=nil,[5]=nil,[6]="swap ⓪✖",[7]="reset cart"}
-				pico8.pause_menu_selected = 0
-			end
+		elseif has_value(pico8.keymap[0][4], key) or has_value(pico8.keymap[0][5], key) or has_value(pico8.keymap[0][6], key) then 
+			doPauseMenu(pico8.pause_menu_selected)
 		end
-	elseif key == "f1" or key == "f6" then
-		-- screenshot
-		local screenshot = love.graphics.newScreenshot(false)
-		local filename = cartname .. "-" .. os.time() .. ".png"
-		screenshot:encode("png", filename)
-		log("saved screenshot to", filename)
-	elseif key == "f3" or key == "f8" then
-		-- start recording
-		video_frames = {}
-	elseif key == "f4" or key == "f9" then
-		-- stop recording and save
-		local basename = cartname .. "-" .. os.time() .. "-"
-		for i, v in ipairs(video_frames) do
-			v:encode(string.format("%s%04d.png", basename, i))
-		end
-		video_frames = nil
-		log("saved video to", basename)
-	elseif key == "return" and isAltDown() then
-		love.window.setFullscreen(not love.window.getFullscreen(), "desktop")
-		return
+	-- elseif key == "f1" or key == "f6" then
+	-- 	-- screenshot
+	-- 	local screenshot = love.graphics.newScreenshot(false)
+	-- 	local filename = cartname .. "-" .. os.time() .. ".png"
+	-- 	screenshot:encode("png", filename)
+	-- 	log("saved screenshot to", filename)
+	-- elseif key == "f3" or key == "f8" then
+	-- 	-- start recording
+	-- 	video_frames = {}
+	-- elseif key == "f4" or key == "f9" then
+	-- 	-- stop recording and save
+	-- 	local basename = cartname .. "-" .. os.time() .. "-"
+	-- 	for i, v in ipairs(video_frames) do
+	-- 		v:encode(string.format("%s%04d.png", basename, i))
+	-- 	end
+	-- 	video_frames = nil
+	-- 	log("saved video to", basename)
 	else
 		for p = 0, 1 do
 			for i = 0, #pico8.keymap[p] do
@@ -1023,9 +1049,9 @@ function love.keypressed(key)
 			end
 		end
 	end
-	if pico8.cart and pico8.cart._keydown then
-		return pico8.cart._keydown(key)
-	end
+	-- if pico8.cart and pico8.cart._keydown then
+	-- 	return pico8.cart._keydown(key)
+	-- end
 end
 
 function love.keyreleased(key)
@@ -1039,24 +1065,72 @@ function love.keyreleased(key)
 			end
 		end
 	end
-	if pico8.cart and pico8.cart._keyup then
-		return pico8.cart._keyup(key)
-	end
+	-- if pico8.cart and pico8.cart._keyup then
+	-- 	return pico8.cart._keyup(key)
+	-- end
 end
 
-function love.textinput(text)
-	text = text:lower()
-	local validchar = false
-	for i = 1, #glyphs do
-		if glyphs:sub(i, i) == text then
-			validchar = true
-			break
+
+function love.gamepadpressed(joystick, button)
+
+	if pico8.paused==false and pico8.gamepad_map[button]==6 then
+		pico8.paused = true
+	elseif pico8.paused==true then
+		if  pico8.gamepad_map[button]==3 then 
+			pico8.pause_menu_selected = next_pause_item(pico8.pause_menu_selected)
+		elseif pico8.gamepad_map[button]==2 then 
+			pico8.pause_menu_selected = prev_pause_item(pico8.pause_menu_selected)
+		elseif pico8.gamepad_map[button]==4 or pico8.gamepad_map[button]==5 or pico8.gamepad_map[button]==6 then 
+			doPauseMenu(pico8.pause_menu_selected)
 		end
+	else
+		local pico_btn = pico8.gamepad_map[button]
+		if type(pico_btn) == "number" then
+			pico8.keypressed[0][pico_btn] = -1 -- 设置为初始状态，由 update_buttons 递增 
+    	end
 	end
-	if validchar and pico8.cart and pico8.cart._textinput then
-		return pico8.cart._textinput(text)
-	end
+	
 end
+
+function love.gamepadreleased(joystick, button)
+    local pico_btn = pico8.gamepad_map[button]
+    if type(pico_btn) == "number" then
+        pico8.keypressed[0][pico_btn] = nil -- 清除状态 
+    end
+end
+
+function doPauseMenu(i)
+
+	if i == 0 then
+		pico8.paused = false
+	elseif i == 6 then
+		swap_ox()
+		pico8.paused = false
+	elseif i == 7 then
+		api.load(initialcartname)
+		api.run()
+	end
+
+end
+
+function swap_ox()
+	pico8.keymap[0][4],pico8.keymap[0][5] = pico8.keymap[0][5],pico8.keymap[0][4]
+	pico8.gamepad_map.a, pico8.gamepad_map.b = pico8.gamepad_map.b, pico8.gamepad_map.a
+	pico8.gamepad_map.x, pico8.gamepad_map.y = pico8.gamepad_map.y, pico8.gamepad_map.x
+end
+-- function love.textinput(text)
+-- 	text = text:lower()
+-- 	local validchar = false
+-- 	for i = 1, #glyphs do
+-- 		if glyphs:sub(i, i) == text then
+-- 			validchar = true
+-- 			break
+-- 		end
+-- 	end
+-- 	if validchar and pico8.cart and pico8.cart._textinput then
+-- 		return pico8.cart._textinput(text)
+-- 	end
+-- end
 
 function love.touchpressed(id, x, y, dx, dy, pressure)
 	if pico8.cart and pico8.cart._touchdown then
@@ -1250,4 +1324,13 @@ function prev_pause_item(cur)
         end
     end
     return cur
+end
+
+function has_value(tab, val)
+    for _, value in ipairs(tab) do
+        if value == val then
+            return true
+        end
+    end
+    return false
 end
