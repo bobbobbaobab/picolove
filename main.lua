@@ -95,7 +95,7 @@ pico8 = {
 	cursor = { 0, 0 },
 	camera_x = 0,
 	camera_y = 0,
-	can_pause = true,
+	-- can_pause = true,
 	can_shutdown = false,
 	draw_palette = {},
 	display_palette = {},
@@ -108,6 +108,8 @@ pico8 = {
 	spritesheet_data = nil,
 	spritesheet = nil,
 	has_focus = true,
+	pause_menu = {[0]="continue",[1]=nil,[2]=nil,[3]=nil,[4]=nil,[5]=nil,[6]="swap ⓪✖",[7]="reset cart"},
+	pause_menu_selected = 0
 }
 
 local flr, abs = math.floor, math.abs
@@ -119,7 +121,7 @@ local __audio_buffer_size = 1024 --1024 by default
 local video_frames = nil
 local osc
 host_time = 0
-local paused = false
+pico8.paused = false
 local focus = true
 local focus_start = false
 
@@ -132,12 +134,12 @@ currentDirectory = "/"
 local glyphs =
 	"abcdefghijklmnopqrstuvwxyz\"'`-_/1234567890!?[](){}.,;:<>+=%#^*~ "
 
-local function _allow_pause(value)
-	if type(value) ~= "boolean" then
-		value = true
-	end
-	pico8.can_pause = value
-end
+-- local function _allow_pause(value)
+-- 	if type(value) ~= "boolean" then
+-- 		value = true
+-- 	end
+-- 	pico8.can_pause = value
+-- end
 
 local function _allow_shutdown(value)
 	if type(value) ~= "boolean" then
@@ -590,7 +592,7 @@ function new_sandbox()
 		_touchup = nil,
 		_textinput = nil,
 		-- used for repl
-		_allow_pause = _allow_pause,
+		-- _allow_pause = _allow_pause,
 		_allow_shutdown = _allow_shutdown,
 
 		__pico8_all = function(x)
@@ -969,8 +971,26 @@ function love.keypressed(key)
 		love.event.quit(2)
 	elseif key == "v" and isCtrlOrGuiDown() and not isAltDown() then
 		pico8.clipboard = love.system.getClipboardText()
-	elseif pico8.can_pause and (key == "pause" or key == "p") then
-		paused = not paused
+	elseif  pico8.paused==false and (key == "return" or key == "p") then
+		pico8.paused = true
+	elseif pico8.paused==true then
+		if key == "s" then 
+			pico8.pause_menu_selected = next_pause_item(pico8.pause_menu_selected)
+		elseif key == "w" then 
+		 	pico8.pause_menu_selected = prev_pause_item(pico8.pause_menu_selected)
+		elseif key == "j" or key == "k" or key == "return" or key == "p" then 
+			if pico8.pause_menu_selected ==0 then
+				pico8.paused = false
+			elseif pico8.pause_menu_selected == 6 then
+				--swap button
+			elseif pico8.pause_menu_selected == 7 then
+				api.load(initialcartname)
+				api.run()
+				pico8.paused = false
+				pico8.pause_menu = {[0]="continue",[1]=nil,[2]=nil,[3]=nil,[4]=nil,[5]=nil,[6]="swap ⓪✖",[7]="reset cart"}
+				pico8.pause_menu_selected = 0
+			end
+		end
 	elseif key == "f1" or key == "f6" then
 		-- screenshot
 		local screenshot = love.graphics.newScreenshot(false)
@@ -1112,12 +1132,14 @@ function love.run()
 		if love.timer then
 			love.timer.step()
 			dt = dt + love.timer.getDelta()
+			 -- 防止切后台等情况导致 dt 过大
+			if dt > 0.05 then dt = 0.05 end
 		end
 
 		-- Call update and draw
 		local render = false
 		while dt > pico8.frametime do
-			if paused or not focus then -- luacheck: ignore 542
+			if pico8.paused or not focus then-- luacheck: ignore 542
 				-- nop
 			else
 				host_time = host_time + dt
@@ -1136,14 +1158,61 @@ function love.run()
 
 		if render and love.graphics and love.graphics.isActive() then
 			love.graphics.origin()
-			if not paused and focus then
+			if pico8.paused then
+				-- === 暂停状态 ===
+				-- 1. 此时不调用 love.draw()，防止执行 cart._draw() 里的逻辑
+				
+				-- 2. 准备在现有的画面上画黑框
+				love.graphics.setCanvas(pico8.screen)
+				love.graphics.setShader(pico8.draw_shader)
+				
+				-- 3. 临时重置相机和鼠标 (确保暂停框永远画在屏幕中间，不受游戏视角影响)
+				local cam_x, cam_y = pico8.camera_x, pico8.camera_y
+				local cur_x, cur_y = pico8.cursor[1], pico8.cursor[2]
+				
+				pico8.camera_x, pico8.camera_y = 0, 0
+
+				-- 4. 绘制暂停样式
+				local count = 0
+				for i = 0, 7 do
+					if pico8.pause_menu[i] then
+						count = count+1
+					end
+				end
+
+				local start_y = 64 - (count * 8) / 2
+
+				api.rect(22,start_y - 6,105,start_y + count * 8 + 5,0)
+				api.rectfill(23,start_y - 5,104,start_y + count * 8 + 4,7)
+				api.rectfill(24,start_y - 4,103,start_y + count * 8 + 3,0)
+
+				local line = 0
+				for i = 0, 7 do
+					local text = pico8.pause_menu[i]
+					if text then
+						local y = start_y + line * 8 +1
+						if i == pico8.pause_menu_selected then
+							api.print("> "..text, 28, y, 7)
+						else
+							api.print("  "..text, 27, y, 7)
+						end
+						line = line+ 1
+					end
+				end
+				
+				
+				-- 5. 恢复相机和鼠标
+				pico8.camera_x, pico8.camera_y = cam_x, cam_y
+				pico8.cursor[1], pico8.cursor[2] = cur_x,cur_y
+
+				-- 6. 显示画面
+				api.flush()
+				flip_screen()
+			elseif focus then
+				-- === 正常游戏状态 ===
 				if love.draw then
 					love.draw()
 				end
-				--else
-				-- TODO: fix issue with leftover paused menu
-				--api.rectfill(64 - 4 * 4, 60, 64 + 4 * 4 - 2, 64 + 4 + 4, 1)
-				--api.print("paused", 64 - 3 * 4, 64, (host_time * 20) % 8 < 4 and 7 or 13)
 			elseif not focus and focus_start then
 				if love.draw then
 					love.draw()
@@ -1161,3 +1230,24 @@ function love.run()
 end
 
 pico8.update_audio = update_audio
+
+function next_pause_item(cur)
+    for i = 1, 8 do
+        local idx = (cur + i) % 8
+        if pico8.pause_menu[idx] ~= nil then
+            return idx
+        end
+    end
+    return cur
+end
+
+function prev_pause_item(cur)
+    for i = 1, 8 do
+        local idx = (cur - i) % 8
+        if idx < 0 then idx = idx + 8 end
+        if pico8.pause_menu[idx] ~= nil then
+            return idx
+        end
+    end
+    return cur
+end
