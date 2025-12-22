@@ -116,38 +116,54 @@ function api.reset()
 end
 
 function api.flip()
-	-- 1. 把内容绘制到屏幕上
+	-- 把内容绘制到屏幕上
+	api.flush()
     flip_screen() 
     -- 注意：flip_screen 结束时会把 Canvas 设回 pico8.screen
 
-    -- 2. 暂时取消 Canvas，否则无法调用 pump
-    love.graphics.setCanvas()
+    -- 暂时取消 Canvas，否则无法调用 pump
+    -- love.graphics.setCanvas()
 
-    -- 3. 手动更新音频（解决声音卡顿/不播放问题）
-    if pico8.update_audio then
-        pico8.update_audio(pico8.frametime)
-    end
+	-- 接管时间与音频更新
+    if love.timer then
+
+		-- 吃掉时间增量
+		-- 调用 step() 会重置 LÖVE 的内部计时器。
+		-- 这样当代码回到 main.lua 的主循环时，getDelta() 返回的将是 0 (或极小值)，
+		-- 就不会触发“疯狂追赶”的 update 循环了。
+		love.timer.step()
+        local dt = love.timer.getDelta()
+
+        -- 防止切后台等情况导致 dt 过大
+       if dt > 0.05 then dt = 0.05 end
+
+        -- 更新全局时间
+        if host_time then
+            host_time = host_time + dt
+            if host_time > 65536 then host_time = host_time - 65536 end
+        end
+
+		if pico8.update_audio then
+			pico8.update_audio(pico8.frametime)
+		end
+
+	end
 
     -- 4. 处理系统事件（解决窗口未响应，现在调用是安全的）
-    if love.event then
-        love.event.pump()
-    end
+    -- if love.event then
+    --     love.event.pump()
+    -- end
 
     -- 5. 恢复 Canvas，确保后续的 print/spr 等指令能画对地方
-    if pico8.screen then
-        love.graphics.setCanvas(pico8.screen)
-    end
+    -- if pico8.screen then
+    --     love.graphics.setCanvas(pico8.screen)
+    -- end
 
     -- 6. 等待帧同步
-    love.timer.sleep(pico8.frametime)
+	if love.timer then
+    	love.timer.sleep(pico8.frametime)
+	end
 
-	-- 吃掉时间增量
-    -- 调用 step() 会重置 LÖVE 的内部计时器。
-    -- 这样当代码回到 main.lua 的主循环时，getDelta() 返回的将是 0 (或极小值)，
-    -- 就不会触发“疯狂追赶”的 update 循环了。
-    if love.timer then
-        love.timer.step()
-    end
 end
 
 function api.camera(x, y)
@@ -1829,7 +1845,7 @@ function api.run()
 	api.clip()
 	pico8.cart = new_sandbox()
 
-	pico8.can_pause = true
+	-- pico8.can_pause = true
 	pico8.can_shutdown = false
 
 	for addr = 0x4300, 0x5e00 - 1 do
