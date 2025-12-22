@@ -1,8 +1,8 @@
 __picolove_version = "0.2.0"
 
 scale = 4
-xpadding = 8.5 --8.5 by default
-ypadding = 3.5 --3.5 by default
+xpadding = 0 --8.5 by default
+ypadding = 0 --3.5 by default
 __pico_resolution = { 128, 128 }
 
 local function startsWidth(line, prefix)

@@ -1825,6 +1825,7 @@ function api.load(filename)
 				.. __picolove_love_version
 		)
 	end
+
 	return hasloaded
 end
 
@@ -1884,6 +1885,10 @@ function api.run()
 	else
 		setfps(30)
 	end
+
+	pico8.paused = false
+	pico8.pause_menu = {[0]="continue",[1]=nil,[2]=nil,[3]=nil,[4]=nil,[5]=nil,[6]="swap ⓪✖",[7]="reset cart"}
+	pico8.pause_menu_selected = 0
 end
 
 -- function api.stop(message, x, y, col) -- luacheck: no unused
@@ -2278,17 +2283,73 @@ end
 -- 	-- TODO: implement this
 -- end
 
+local ffi = require("ffi")
+
+-- === 优化资源初始化 ===
+-- 创建一个 128x128 的内存图像数据
+local flush_imagedata = love.image.newImageData(128, 128)
+-- 创建对应的 GPU 纹理
+local flush_image = love.graphics.newImage(flush_imagedata)
+flush_image:setFilter("nearest", "nearest") -- 保持像素风格
+
+-- 获取指向内存数据的指针 (强转为 uint8_t 数组，RGBA8 格式)
+local flush_ptr = ffi.cast("uint8_t*", flush_imagedata:getPointer())
+
+-- 专用 Shader：用于将索引颜色纹理 映射为 真实 RGB 颜色
+-- 注意：这里强制 alpha 为 1.0 (不透明)，因为 Flush 是将显存输出到屏幕，不受 palt 透明色影响
+local flush_shader = love.graphics.newShader([[
+    extern float palette[16];
+    vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) {
+        // 读取红色通道作为索引 (0-255 被归一化为 0.0-1.0，所以乘 16 还原)
+        int index = int(floor(Texel(texture, texture_coords).r * 16.0));
+        // 从 Palette 查找颜色
+        return vec4(vec3(palette[index]/16.0), 1.0);
+    }
+]])
+
 function api.flush()
-	for y=0,127 do
-		for x=0,127 do
-			setColor(pico8.fb[y][x])
-			love.graphics.point(x, y)
-		end
-	end
+    -- 1. 使用 FFI 直接操作内存，避免 Lua 表查找和函数调用的开销
+    local p = 0
+    for y=0, 127 do
+        -- 缓存行引用，稍微减少一次查表
+        local row = pico8.fb[y]
+        for x=0, 127 do
+            -- RGBA8 格式：每像素 4 字节
+            -- 我们将颜色索引 (0-15) 存入 R 通道。
+            -- 乘以 16 是为了配合 Shader 中的解码逻辑 (color.r * 16.0)
+            flush_ptr[p]     = row[x] * 16  -- R
+            flush_ptr[p + 3] = 255          -- A (设为不透明，虽然 Shader 忽略了它)
+            
+            p = p + 4
+        end
+    end
+
+    -- 2. 将 CPU 内存数据一次性推送到 GPU
+    flush_image:replacePixels(flush_imagedata)
+
+    -- 3. 绘制纹理
+    local old_shader = love.graphics.getShader()
+    
+    love.graphics.setShader(flush_shader)
+    -- 更新 Shader 的调色板数据 (确保调色板修改能实时生效)
+    -- shdr_unpack 是 main.lua 定义的全局函数
+    if shdr_unpack then
+        flush_shader:send("palette", shdr_unpack(pico8.draw_palette))
+    end
+
+    -- 确保绘制颜色为纯白，否则纹理会被染色
+    love.graphics.setColor(255, 255, 255, 255) 
+    
+    love.graphics.draw(flush_image, 0, 0)
+    
+    -- 恢复现场
+    love.graphics.setShader(old_shader)
 end
 
 function api.bitband(c, t)
 	return bit.band(c, t)
 end 
+
+
 
 return api
