@@ -5,10 +5,10 @@ This fork focuses on gameplay rather than the editor.
 TODO LIST
 - [x] implement api.fillp (only basic features)
 - [x] pause menu
-- [ ] implement api.menuitem
+- [x] implement api.menuitem
 
 INSTALL_DEMOS
-- [ ] api.p8 (can't print Japanese) (no menuitem)
+- [ ] api.p8 (can't print Japanese)
 - [x] automata.p8
 - [x] bounce.p8
 - [x] cast.p8 (can't show cpu usage)
@@ -16,7 +16,7 @@ INSTALL_DEMOS
 - [x] dots3d.p8
 - [x] drippy.p8
 - [x] hello.p8
-- [ ] jelpi.p8 (no menuitem) (can't print ★)
+- [ ] jelpi.p8 (can't print ★)
 - [x] sort.p8
 - [x] wander.p8
 - [x] waves.p8 
