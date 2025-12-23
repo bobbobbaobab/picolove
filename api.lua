@@ -1711,6 +1711,8 @@ function api.reload() -- luacheck: no unused
 	-- FIXME: doesn't handle filepaths
 	--_load(cartname)
 
+	pico8.pause_menu_selected = 0
+
 	--恢复数据
     for y = 0, 63 do
         for x = 0, 127 do
@@ -1838,6 +1840,15 @@ function api.run()
 		return
 	end
 
+	pico8.paused = false
+	pico8.pause_menu = {
+        [0] = { label = "continue", callback = function() pico8.paused = false end },
+        -- 1~5 留空，由 api.menuitem 填充
+        [6] = { label = "swap ⓪✖", callback = function() swap_ox() return false end }, -- 返回 true 保持菜单打开
+        [7] = { label = "reset cart", callback = function() api.load(initialcartname); api.run(); return false end }
+    }
+	pico8.pause_menu_selected = 0
+
 	love.graphics.setCanvas(pico8.screen)
 	love.graphics.setShader(pico8.draw_shader)
 	--restore_clip()
@@ -1885,10 +1896,6 @@ function api.run()
 	else
 		setfps(30)
 	end
-
-	pico8.paused = false
-	pico8.pause_menu = {[0]="continue",[1]=nil,[2]=nil,[3]=nil,[4]=nil,[5]=nil,[6]="swap ⓪✖",[7]="reset cart"}
-	pico8.pause_menu_selected = 0
 end
 
 -- function api.stop(message, x, y, col) -- luacheck: no unused
@@ -2143,8 +2150,31 @@ function api.holdframe()
 	-- TODO: Implement this
 end
 
-function api.menuitem(index, label, fn) -- luacheck: no unused
-	-- TODO: implement this
+function api.menuitem(index, label, fn)
+    -- PICO-8 规定 index 必须是 1 到 5
+    if type(index) ~= "number" or index < 1 or index > 5 then
+        return
+    end
+
+    -- 如果没有 label 或 fn，或者 label 是 nil，则移除该菜单项
+    if label == nil or fn == nil then
+        pico8.pause_menu[index] = nil
+        return
+    end
+
+    -- 将 label 转为字符串（虽然通常传入的都是字符串）
+    label = tostring(label)
+    
+    -- 截断到 16 个字符 (PICO-8 标准)
+    if #label > 16 then
+        label = label:sub(1, 16)
+    end
+
+    -- 存储结构化数据
+    pico8.pause_menu[index] = {
+        label = label, 
+        callback = fn
+    }
 end
 
 api.sub = string.sub

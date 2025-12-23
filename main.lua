@@ -14,7 +14,7 @@ local font = require("font")
 local patch = require("patch")
 
 cartname = nil -- used by api.reload
-local initialcartname = nil -- used by esc
+initialcartname = nil -- used by esc
 local love_args = nil -- luacheck: no unused（未使用）
 
 pico8_copy={}
@@ -140,7 +140,8 @@ pico8 = {
 	spritesheet_data = nil,
 	spritesheet = nil,
 	has_focus = true,
-	pause_menu = {[0]="continue",[1]=nil,[2]=nil,[3]=nil,[4]=nil,[5]=nil,[6]="swap ⓪✖",[7]="reset cart"},
+	pause_menu = {
+    },
 	pause_menu_selected = 0
 }
 
@@ -1100,17 +1101,18 @@ function love.gamepadreleased(joystick, button)
 end
 
 function doPauseMenu(i)
-
-	if i == 0 then
-		pico8.paused = false
-	elseif i == 6 then
-		swap_ox()
-		pico8.paused = false
-	elseif i == 7 then
-		api.load(initialcartname)
-		api.run()
-	end
-
+    local item = pico8.pause_menu[i]
+    
+    if item and item.callback then
+        -- 执行回调函数
+        -- 官方文档：If the callback returns true, the pause menu remains open.
+        local keep_open = item.callback()
+        
+        -- 如果返回的不是 true，则关闭菜单继续游戏
+        if keep_open ~= true then
+            pico8.paused = false
+        end
+    end
 end
 
 function swap_ox()
@@ -1262,15 +1264,18 @@ function love.run()
 
 				local line = 0
 				for i = 0, 7 do
-					local text = pico8.pause_menu[i]
-					if text then
-						local y = start_y + line * 8 +1
+					local item = pico8.pause_menu[i] -- [修改] 获取对象
+					
+					if item and item.label then -- [修改] 检查对象是否存在
+						local text = item.label -- [修改] 获取 label 属性
+						local y = start_y + line * 8 + 1
+						
 						if i == pico8.pause_menu_selected then
-							api.print("> "..text, 28, y, 7)
+							api.print("> " .. text, 28, y, 7)
 						else
-							api.print("  "..text, 27, y, 7)
+							api.print("  " .. text, 27, y, 7)
 						end
-						line = line+ 1
+						line = line + 1
 					end
 				end
 				
