@@ -4,7 +4,7 @@ This fork focuses on gameplay rather than the editor.
 --------
 TODO LIST
 - [x] implement api.fillp (only basic features)
-- [ ] pause menu
+- [x] pause menu
 - [ ] implement api.menuitem
 
 INSTALL_DEMOS
